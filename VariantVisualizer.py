@@ -1,10 +1,10 @@
-from vis_reference import data_set_dictionaries
-from graphviz import Digraph
-import pandas as pd
-from neo4j import GraphDatabase
-import pydot
-from _collections import OrderedDict
 import os
+import pandas as pd
+import pydot
+from graphviz import Digraph
+from neo4j import GraphDatabase
+from _collections import OrderedDict
+from vis_reference import data_set_dictionaries
 
 from GraphConfigurator import GraphConfigurator
 
@@ -17,8 +17,8 @@ class VariantVisualizer:
         self.driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", self.gc.get_password()))
 
         with self.driver.session() as session:
-            self.df_task_variants_clustered = \
-                session.read_transaction(query_cluster_variants)
+            self.df_task_variants = \
+                session.read_transaction(query_variants)
 
         self.node_properties = data_set_dictionaries.node_properties[self.gc.get_name_data_set()]
         self.abbr_dict = data_set_dictionaries.abbr_dict[self.gc.get_name_data_set()]
@@ -30,11 +30,13 @@ class VariantVisualizer:
     def visualize_variants_colored(self, print_variants_not_in_cluster=False):
         os.makedirs(self.output_directory_colored, exist_ok=True)
 
-        cluster_list = list(self.df_task_variants_clustered['cluster'].unique())
+        df_variants_clustered = self.df_task_variants[~self.df_task_variants['cluster'].isna()].copy()
+
+        cluster_list = list(df_variants_clustered['cluster'].unique())
         for cluster in cluster_list:
-            df_task_variants_in_cluster = self.df_task_variants_clustered[self.df_task_variants_clustered['cluster'] == cluster]
-            df_task_variants_in_cluster.sort_values(by=['ID', 'frequency'], ascending=[True, False], inplace=True)
-            dot_grouped_variants = get_dot_grouped_variants_colored(df_task_variants_in_cluster,
+            df_variants_in_cluster = df_variants_clustered[df_variants_clustered['cluster'] == cluster].copy()
+            df_variants_in_cluster.sort_values(by=['ID', 'frequency'], ascending=[True, False], inplace=True)
+            dot_grouped_variants = get_dot_grouped_variants_colored(df_variants_in_cluster,
                                                                     node_properties=self.node_properties)
             (graph,) = pydot.graph_from_dot_data(dot_grouped_variants.source)
             graph.write_png(f"{self.output_directory_colored}\\variants_in_cluster_{cluster}.png")
@@ -43,7 +45,7 @@ class VariantVisualizer:
             output_directory_not_clustered = os.path.join(self.output_directory_colored, "variants_not_in_cluster")
             os.makedirs(output_directory_not_clustered, exist_ok=True)
 
-            df_variants_not_in_cluster = self.df_task_variants_clustered[self.df_task_variants_clustered['cluster'].isna()].copy()
+            df_variants_not_in_cluster = self.df_task_variants[self.df_task_variants['cluster'].isna()].copy()
             df_variants_not_in_cluster.reset_index(level=0, inplace=True)
 
             for index, row in df_variants_not_in_cluster.iterrows():
@@ -64,7 +66,6 @@ def get_dot_grouped_variants_colored(df_grouped_variants, node_properties):
     for index, row in df_grouped_variants.iloc[::-1].iterrows():
         path = row.path
         node_id = 1
-
         path_label = str(int(row['ID']))
         path_frequency = str(int(row['frequency']))
 
@@ -133,7 +134,7 @@ def print_legend(node_properties, output_directory):
     graph.write_png(f"{output_directory}\\legend.png")
 
 
-def query_cluster_variants(tx):
+def query_variants(tx):
     q = f'''
         MATCH (ti:TaskInstance)
         WITH ti.path AS path, ti.ID AS ID, ti.cluster AS cluster

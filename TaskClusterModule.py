@@ -24,16 +24,18 @@ class TaskClusterModule:
         self.gc = GraphConfigurator(graph)
         self.eg = EventGraph(self.gc.get_password(), self.gc.get_entity_labels())
 
-        if path.exists(f"{self.meta_directory}variants_{graph}_{min_variant_freq}.pkl"):
-            self.df_variants = pd.read_pickle(f"{self.meta_directory}variants_{graph}_{min_variant_freq}.pkl")
+        if path.exists(f"{self.meta_directory}variants_{graph}_F{min_variant_freq}.pkl"):
+            self.df_variants = pd.read_pickle(f"{self.meta_directory}variants_{graph}_F{min_variant_freq}.pkl")
         else:
-            self.df_variants = self.eg.query_variants_and_frequencies(min_frequency=min_variant_freq)
+            self.df_variants = self.eg.query_variants(min_frequency=min_variant_freq)
+            self.df_variants.to_pickle(
+                f"{self.meta_directory}variants_{graph}_F{min_variant_freq}.pkl")
 
     def encode_and_cluster(self, min_variant_length, num_clusters):
         if path.exists(
-                f"{self.meta_directory}variants_clustered_{self.graph}_{min_variant_length}_{num_clusters}.pkl"):
+                f"{self.meta_directory}variants_clustered_{self.graph}_F{self.min_variant_freq}_C{num_clusters}_L{min_variant_length}.pkl"):
             df_variants_clustered = pd.read_pickle(
-                f"{self.meta_directory}variants_clustered_{self.graph}_{min_variant_length}_{num_clusters}.pkl")
+                f"{self.meta_directory}variants_clustered_{self.graph}_F{self.min_variant_freq}_C{num_clusters}_L{min_variant_length}.pkl")
         else:
             e = VariantEncoderFactory.get_variant_encoder(self.gc.get_name_data_set())
             df_variants_to_cluster = self.df_variants[self.df_variants['path_length'] >= min_variant_length]
@@ -42,7 +44,7 @@ class TaskClusterModule:
             df_variants_clustered = pd.concat([self.df_variants, df_clusters], axis=1)
             os.makedirs(self.meta_directory, exist_ok=True)
             df_variants_clustered.to_pickle(
-                f"{self.meta_directory}variants_clustered_{self.graph}_{min_variant_length}_{num_clusters}.pkl")
+                f"{self.meta_directory}variants_clustered_{self.graph}_F{self.min_variant_freq}_C{num_clusters}_L{min_variant_length}.pkl")
         return df_variants_clustered
 
     def encode_and_cluster_specific(self, min_variant_length, extra_variants_to_exclude, num_clusters,

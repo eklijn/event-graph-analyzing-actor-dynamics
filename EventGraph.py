@@ -1,5 +1,7 @@
 import pandas as pd
 from neo4j import GraphDatabase
+from neotime import DateTime
+import datetime
 
 
 class EventGraph:
@@ -7,48 +9,9 @@ class EventGraph:
         self.driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", password))
         self.entity_labels = entity_labels
 
-    def query_events_variant_frequency_filter(self, rank):
+    def query_variants(self, min_frequency):
         with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) WHERE ti.ID < {rank}
-                WITH e.case AS case, e.timestamp AS timestamp, e.resource AS resource, e.activity_lifecycle AS action
-                RETURN case, action, timestamp, resource ORDER BY case, timestamp ASC
-                '''
-            result = session.run(q)
-            df_event_log_filtered = pd.DataFrame([dict(record) for record in result])
-            return df_event_log_filtered
-
-    def query_events(self):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)
-                WITH e.case AS case, e.timestamp AS timestamp, e.resource AS resource, e.activity_lifecycle AS action, e.LoanGoal AS loan_goal, e.ApplicationType AS application_type
-                RETURN case, action, timestamp, resource, loan_goal, application_type ORDER BY case, timestamp ASC
-                '''
-            result = session.run(q)
-            df_event_log_filtered = pd.DataFrame([dict(record) for record in result])
-            return df_event_log_filtered
-
-    def query_events_subset_filter(self, variant_id, period_filter, resources=""):
-        variant_filter = f"WHERE ti.ID = {variant_id}"
-        if resources != "":
-            resource_filter = f"AND ti.rID IN {resources}"
-        else:
-            resource_filter = ""
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) {variant_filter} {period_filter} {resource_filter}
-                WITH DISTINCT ti.cID AS case
-                MATCH (e:Event {{case: case}})
-                WITH e.case AS case, e.timestamp AS timestamp, e.resource AS resource, e.activity_lifecycle AS action
-                RETURN case, action, timestamp, resource ORDER BY case, timestamp ASC
-                '''
-            result = session.run(q)
-            df_event_log_filtered = pd.DataFrame([dict(record) for record in result])
-            return df_event_log_filtered
-
-    def query_variants_and_frequencies(self, min_frequency):
-        with self.driver.session() as session:
+            # language=Cypher
             q = f'''
                 MATCH (ti:TaskInstance)
                 WITH ti.path AS path, ti.ID AS ID, size(ti.path) AS path_length
@@ -60,20 +23,22 @@ class EventGraph:
             df_variants = pd.DataFrame([dict(record) for record in result])
         return df_variants
 
-    def query_cluster_variants(self):
+    def query_variants_in_cluster(self):
         with self.driver.session() as session:
+            # language=Cypher
             q = f'''
                 MATCH (ti:TaskInstance) WHERE EXISTS(ti.cluster)
                 WITH ti.path AS path, ti.ID AS ID, ti.cluster AS cluster
                 WITH DISTINCT path, ID, cluster, COUNT (*) AS frequency
-                RETURN cluster, ID, path, frequency
+                RETURN ID, path, frequency, cluster
                 '''
             result = session.run(q)
-            df_variants_decomposed = pd.DataFrame([dict(record) for record in result])
-        return df_variants_decomposed
+            df_variants_in_cluster = pd.DataFrame([dict(record) for record in result])
+        return df_variants_in_cluster
 
-    def query_cluster_variants_decomposed(self, decomposed_property):
+    def query_variants_in_cluster_decomposed(self, decomposed_property):
         with self.driver.session() as session:
+            # language=Cypher
             q = f'''
                 MATCH (ti:TaskInstance) WHERE EXISTS(ti.cluster)
                 WITH ti.path AS path, ti.ID AS ID, ti.{decomposed_property} AS decomposed_property, ti.cluster AS cluster
@@ -81,465 +46,155 @@ class EventGraph:
                 RETURN cluster, ID, path, decomposed_property, frequency
                 '''
             result = session.run(q)
-            df_variants_decomposed = pd.DataFrame([dict(record) for record in result])
-        return df_variants_decomposed
+            df_variants_in_cluster_decomposed = pd.DataFrame([dict(record) for record in result])
+        return df_variants_in_cluster_decomposed
 
-    def query_variant_frequencies_from_variant_ids(self, variant_ids):
+    def query_actor_task_path(self, actor):
         with self.driver.session() as session:
+            # language=Cypher
             q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.ID IN {variant_ids}
-                WITH ti.ID AS variant
-                WITH DISTINCT variant, COUNT (*) AS frequency
-                RETURN variant, frequency ORDER BY frequency DESC
+                MATCH (ti:TaskInstance) WHERE ti.rID = "{actor}"
+                WITH date.truncate('day', ti.start_time) AS day, ti.cluster AS task, ti.start_time AS start, ti.end_time AS end
+                RETURN day, task, start, end ORDER BY start
                 '''
             # print(q)
             result = session.run(q)
-            df_variant_variants = pd.DataFrame([dict(record) for record in result])
-        return df_variant_variants
+            df_actor_task_path = pd.DataFrame([dict(record) for record in result])
+        return df_actor_task_path
 
-    def query_variant_frequencies_subset_filter(self, subset_filter):
+    def query_task_list(self):
         with self.driver.session() as session:
+            # language=Cypher
             q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter[1]}
-                WITH DISTINCT ti
-                WITH ti.path AS path, ti.ID AS ID
-                WITH DISTINCT ID, COUNT (*) AS {subset_filter[0]}
-                RETURN ID, {subset_filter[0]}
+                MATCH (tc:TaskCluster)
+                WITH tc.Name AS task
+                RETURN task
                 '''
             # print(q)
             result = session.run(q)
-            df_subset_variant_frequencies = pd.DataFrame([dict(record) for record in result])
-        return df_subset_variant_frequencies
-
-    def query_cluster_variant_frequencies_subset_filter(self, subset_filter, variant_ids, cluster):
-        if subset_filter[1] == "":
-            variant_id_filter = f"WHERE ti.ID IN {variant_ids}"
-        else:
-            variant_id_filter = f"AND ti.ID IN {variant_ids}"
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter[1]} {variant_id_filter}
-                WITH DISTINCT ti
-                WITH ti.path AS path, ti.ID AS ID
-                WITH DISTINCT ID, COUNT (*) AS {subset_filter[0]}_{cluster}
-                RETURN ID, {subset_filter[0]}_{cluster}
-                '''
-            print(q)
-            result = session.run(q)
-            df_subset_variant_frequencies_in_cluster = pd.DataFrame([dict(record) for record in result])
-        return df_subset_variant_frequencies_in_cluster
-
-    def query_resource_frequencies_from_variant_id(self, variant_id):
-        q = f'''
-            MATCH (ti:TaskInstance) WHERE ti.ID = {variant_id}
-            WITH ti.rID AS resource
-            RETURN DISTINCT resource, COUNT (*) AS frequency
-            '''
-        # print(q)
-        result = run_query(self.driver, q)
-        df_resource_frequencies = pd.DataFrame([dict(record) for record in result])
-        return df_resource_frequencies
-
-    def query_resource_list_from_variant_ids(self, variant_ids):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.ID IN {variant_ids}
-                WITH ti.rID AS resource
-                RETURN DISTINCT resource
-                '''
-            # print(q)
-            result = session.run(q)
-            resources = []
+            task_list = []
             for record in result:
-                resources.append(record['resource'])
-        return resources
+                task_list.append(record['task'])
+        return task_list
 
-    def query_resource_list_from_variant_ids(self, variant_ids, min_frequency):
+    def query_time_pending(self, current_task):
         with self.driver.session() as session:
+            # language=Cypher
             q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.ID IN {variant_ids}
-                WITH DISTINCT ti.rID AS resource, count(*) AS frequency 
-                WHERE frequency > {min_frequency}
-                RETURN resource, frequency
+                MATCH (ti1:TaskInstance)-[:DF_TI {{EntityType:'case'}}]->(ti2:TaskInstance)
+                    -[:DF_TI {{EntityType:'case'}}]->(ti3:TaskInstance) WHERE ti2.cluster = "{current_task}"
+                WITH duration.inSeconds(ti1.end_time, ti2.start_time) AS time_pending, ti3.rID AS next_actor, 
+                    ti3.cluster AS next_task
+                RETURN time_pending, next_actor, next_task
                 '''
-            # print(q)
             result = session.run(q)
-            resources = []
+            df_time_pending = pd.DataFrame([dict(record) for record in result])
+            for index, row in df_time_pending.iterrows():
+                time_pending = row['time_pending']
+                time_pending_seconds = time_pending.hours_minutes_seconds[0] * 3600 + time_pending.hours_minutes_seconds[1] * 60 + time_pending.hours_minutes_seconds[2]
+                df_time_pending.loc[index, 'time_pending_seconds'] = time_pending_seconds
+        return df_time_pending
+
+    def query_start_end_date(self):
+        with self.driver.session() as session:
+            # language=Cypher
+            q = f'''
+                MATCH (ti:TaskInstance)
+                WITH min(ti.start_time) AS start_time
+                RETURN start_time
+                '''
+            result = session.run(q)
+            nst = result.single()[0]
+            start_time = datetime.datetime(nst.year, nst.month, nst.day, nst.hour, nst.minute, int(nst.second)).date()
+            # language=Cypher
+            q = f'''
+                MATCH (ti:TaskInstance)
+                WITH max(ti.start_time) AS end_time
+                RETURN end_time
+                '''
+            result = session.run(q)
+            net = result.single()[0]
+            end_time = datetime.datetime(net.year, net.month, net.day, net.hour, net.minute, int(net.second)).date()
+        return start_time, end_time
+
+    def query_actor_list(self):
+        with self.driver.session() as session:
+            # language=Cypher
+            q = f'''
+                MATCH (ti:TaskInstance)
+                WITH DISTINCT ti.rID AS actor
+                RETURN actor
+                '''
+            result = session.run(q)
+            actor_list = []
             for record in result:
-                resources.append(record['resource'])
-        return resources
+                actor_list.append(record['actor'])
+        return actor_list
 
-    def query_resource_list_from_variant_ids_subset_filter(self, variant_ids, min_frequency, subset_filter):
-        if subset_filter == "":
-            variant_id_filter = f"WHERE ti.ID IN {variant_ids}"
-        else:
-            variant_id_filter = f"AND ti.ID IN {variant_ids}"
+    def query_task_subgraph_nodes(self, start_date, end_date):
         with self.driver.session() as session:
+            # language=Cypher
             q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter} {variant_id_filter} 
-                WITH DISTINCT ti
-                WITH DISTINCT ti.rID AS resource, count(*) AS frequency 
-                WHERE frequency > {min_frequency}
-                RETURN resource, frequency
+                MATCH (ti:TaskInstance) WHERE date("{start_date}") <= date(ti.start_time) 
+                    AND date(ti.end_time) <= date("{end_date}")
+                WITH ti.cluster AS task, ti.ID AS ti_id, ti.cID AS case, ti.rID AS actor,
+                    duration.inSeconds(ti.start_time, ti.end_time) AS duration
+                RETURN task, ti_id, case, actor, duration
                 '''
             # print(q)
             result = session.run(q)
-            resources = []
-            for record in result:
-                resources.append(record['resource'])
-        return resources
+            df_subgraph_nodes = pd.DataFrame([dict(record) for record in result])
+        return df_subgraph_nodes
 
-    def query_resource_list_from_variant_ids_subset_filter_analysis_filter(self, variant_ids, min_frequency,
-                                                                           subset_filter, analysis_filter):
-        if subset_filter == "":
-            variant_id_filter = f"WHERE ti.ID IN {variant_ids}"
-        else:
-            variant_id_filter = f"AND ti.ID IN {variant_ids}"
+    def query_task_subgraph_edges(self, start_date, end_date, entity_type):
         with self.driver.session() as session:
+            # language=Cypher
             q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter} {variant_id_filter} {analysis_filter}
-                WITH DISTINCT ti
-                WITH DISTINCT ti.rID AS resource, count(*) AS frequency 
-                WHERE frequency > {min_frequency}
-                RETURN resource, frequency
+                MATCH (ti1:TaskInstance)-[:DF_TI {{EntityType:'{entity_type}'}}]->(ti2:TaskInstance) 
+                    WHERE date("{start_date}") <= date(ti1.end_time) 
+                    AND date(ti2.start_time) <= date("{end_date}")
+                WITH ti1.cluster AS task_1, ti2.cluster AS task_2, ti1.ID AS variant_1, ti2.ID AS variant_2, 
+                    ti1.cID AS case_1, ti2.cID AS case_2, ti1.rID AS actor_1, ti2.rID AS actor_2,
+                    duration.inSeconds(ti1.end_time, ti2.start_time) AS duration
+                RETURN task_1, task_2, variant_1, variant_2, case_1, case_2, actor_1, actor_2, duration
                 '''
             # print(q)
             result = session.run(q)
-            resources = []
-            for record in result:
-                resources.append(record['resource'])
-        return resources
+            df_subgraph_edges = pd.DataFrame([dict(record) for record in result])
+        return df_subgraph_edges
 
-    def query_resource_frequency_from_variant_id(self, resource, variant_id):
+    def query_event_subgraph_nodes(self, start_date, end_date):
         with self.driver.session() as session:
+            # language=Cypher
             q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.rID = "{resource}" AND ti.ID = {variant_id}
-                RETURN count(ti) AS count
+                MATCH (e:Event) WHERE date("{start_date}") <= date(e.timestamp) <= date("{end_date}")
+                WITH e.activity AS activity, e.activity_lifecycle AS activity_lifecycle, e.case AS case,
+                    e.resource AS actor
+                RETURN activity, activity_lifecycle, case, actor
                 '''
             # print(q)
             result = session.run(q)
-            resource_frequency = result.single()[0]
-        return resource_frequency
+            df_subgraph_nodes = pd.DataFrame([dict(record) for record in result])
+        return df_subgraph_nodes
 
-    def query_resource_frequency_from_variant_ids(self, resource, variant_ids):
+    def query_event_subgraph_edges(self, start_date, end_date, entity_type):
         with self.driver.session() as session:
+            # language=Cypher
             q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.rID = "{resource}" AND ti.ID IN {variant_ids}
-                RETURN count(ti) AS count
+                MATCH (e1:Event)-[:DF {{EntityType:'{entity_type}'}}]->(e2:Event) 
+                    WHERE date("{start_date}") <= date(e1.timestamp) 
+                    AND date(e2.timestamp) <= date("{end_date}")
+                WITH e1.activity AS activity_1, e2.activity AS activity_2, 
+                    e1.activity_lifecycle AS activity_lifecycle_1, e2.activity_lifecycle AS activity_lifecycle_2, 
+                    e1.case AS case_1, e2.case AS case_2, e1.resource AS actor_1, e2.resource AS actor_2,
+                    duration.inSeconds(e1.timestamp, e2.timestamp) AS duration
+                RETURN activity_1, activity_2, activity_lifecycle_1, activity_lifecycle_2, 
+                    case_1, case_2, actor_1, actor_2, duration
                 '''
             # print(q)
             result = session.run(q)
-            resource_frequency = result.single()[0]
-        return resource_frequency
-
-    def query_resource_frequency_from_variant_id_subset_filter(self, resource, variant_id, subset_filter):
-        if subset_filter == "":
-            variant_id_filter = f"WHERE ti.ID = {variant_id}"
-        else:
-            variant_id_filter = f"AND ti.ID = {variant_id}"
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter} {variant_id_filter} AND ti.rID = "{resource}" 
-                WITH DISTINCT ti
-                RETURN count(ti) AS count
-                '''
-            # print(q)
-            result = session.run(q)
-            resource_frequency = result.single()[0]
-        return resource_frequency
-
-    def query_resource_frequency_from_variant_id_subset_filter_analysis_filter(self, resource, variant_id,
-                                                                               subset_filter, analysis_filter):
-        if subset_filter == "":
-            variant_id_filter = f"WHERE ti.ID = {variant_id}"
-        else:
-            variant_id_filter = f"AND ti.ID = {variant_id}"
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter} {variant_id_filter} {analysis_filter}
-                AND ti.rID = "{resource}"
-                WITH DISTINCT ti
-                RETURN count(ti) AS count
-                '''
-            # print(q)
-            result = session.run(q)
-            resource_frequency = result.single()[0]
-        return resource_frequency
-
-    def query_resource_group_frequency_from_variant_id(self, resource_group, variant_id):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.rID IN {resource_group} AND ti.ID = {variant_id}
-                RETURN count(ti) AS count
-                '''
-            # print(q)
-            result = session.run(q)
-            resource_group_frequency = result.single()[0]
-        return resource_group_frequency
-
-    def query_resource_group_frequency_from_variant_id_subset_filter(self, resource_group, variant_id, subset_filter):
-        if subset_filter == "":
-            variant_id_filter = f"WHERE ti.ID = {variant_id}"
-        else:
-            variant_id_filter = f"AND ti.ID = {variant_id}"
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter} {variant_id_filter} AND ti.rID IN {resource_group}
-                WITH DISTINCT ti
-                RETURN count(ti) AS count
-                '''
-            # print(q)
-            result = session.run(q)
-            resource_group_frequency = result.single()[0]
-        return resource_group_frequency
-
-    def query_resource_group_frequency_from_variant_id_subset_filter_analysis_filter(self, resource_group, variant_id,
-                                                                                     subset_filter, analysis_filter):
-        if subset_filter == "":
-            variant_id_filter = f"WHERE ti.ID = {variant_id}"
-        else:
-            variant_id_filter = f"AND ti.ID = {variant_id}"
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter} {variant_id_filter} {analysis_filter}
-                AND ti.rID IN {resource_group} 
-                WITH DISTINCT ti
-                RETURN count(ti) AS count
-                '''
-            # print(q)
-            result = session.run(q)
-            resource_group_frequency = result.single()[0]
-        return resource_group_frequency
-
-    def query_resource_total_frequency(self, resource):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.rID = "{resource}"
-                RETURN count(ti)
-                '''
-            # print(q)
-            result = session.run(q)
-            resource_total_frequency = result.single()[0]
-        return resource_total_frequency
-
-    def query_resource_total_frequency_subset_filter(self, resource, subset_filter):
-        if subset_filter == "":
-            resource_id_filter = f"WHERE ti.rID = \"{resource}\""
-        else:
-            resource_id_filter = f"AND ti.rID = \"{resource}\""
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter} {resource_id_filter}
-                WITH DISTINCT ti
-                RETURN count(ti)
-                '''
-            # print(q)
-            result = session.run(q)
-            resource_total_frequency = result.single()[0]
-        return resource_total_frequency
-
-    # def query_resource_variant_ids_in_variant_ids(self, resource, variant_ids):
-    #     with self.driver.session() as session:
-    #         q = f'''
-    #             MATCH (ti:TaskInstance) WHERE ti.ID IN {variant_ids} AND ti.rID = "{resource}"
-    #             RETURN DISTINCT ti.ID AS ID ORDER BY ID ASC
-    #             '''
-    #         result = session.run(q)
-    #         resource_cluster_ids = []
-    #         for record in result:
-    #             resource_cluster_ids.append(record['ID'])
-    #     return resource_cluster_ids
-
-    def query_variant_frequency_subset_filter(self, variant_id, subset_filter):
-        if subset_filter == "":
-            variant_id_filter = f"WHERE ti.ID = {int(variant_id)}"
-        else:
-            variant_id_filter = f"AND ti.ID = {int(variant_id)}"
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)<-[:CONTAINS]-(ti:TaskInstance) {subset_filter} {variant_id_filter}
-                WITH DISTINCT ti
-                RETURN count(ti)
-                '''
-            result = session.run(q)
-            total_frequency = result.single()[0]
-        return total_frequency
-
-    def query_requested_amounts(self):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (e:Event)
-                WITH e.RequestedAmount as req_amount, e.case AS case
-                RETURN DISTINCT case, req_amount
-                '''
-            result = session.run(q)
-            requested_amounts = []
-            for record in result:
-                requested_amounts.append(float(record['req_amount']))
-        return requested_amounts
-
-######################################################
-##################### STATISTICS #####################
-######################################################
-
-    def query_variant_frequency_variant_subset(self, variant_ids):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.ID IN {variant_ids}
-                RETURN count(ti)
-                '''
-            result = session.run(q)
-            total_variant_frequency = result.single()[0]
-        return total_variant_frequency
-
-    def query_resource_frequency_variant_subset(self, variant_ids):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.ID IN {variant_ids}
-                WITH DISTINCT ti.rID AS resource
-                RETURN count(resource)
-                '''
-            result = session.run(q)
-            total_resource_frequency = result.single()[0]
-        return total_resource_frequency
-
-    def query_durations_variant_subset(self, variant_ids):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.ID IN {variant_ids}
-                WITH duration.inSeconds(ti.start_time, ti.end_time) AS duration
-                RETURN duration
-                '''
-            result = session.run(q)
-            durations = []
-            for record in result:
-                duration = record["duration"]
-                duration_seconds = (duration.hours_minutes_seconds[0] * 3600) + \
-                                   (duration.hours_minutes_seconds[1] * 60) + duration.hours_minutes_seconds[2]
-                durations.append(duration_seconds)
-        return durations
-
-######################################################
-##################### #PLOTTING ######################
-######################################################
-
-    def query_task_instances_per_date_per_resource_from_variant_id(self, variant_id, resource, unit):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.ID = {variant_id} AND ti.rID = "{resource}"
-                WITH date.truncate('{unit}', ti.start_time) AS date, 
-                ti.ID AS variant, count(ti.ID) AS {resource}
-                RETURN date, {resource} ORDER BY date ASC
-                '''
-            # print(q)
-            result = session.run(q)
-            df_task_per_date = pd.DataFrame([dict(record) for record in result]).fillna(0)
-            # df_task_per_date = pd.DataFrame([dict(record) for record in result]).pivot(index='date',
-            #                                                                            columns=variant_id).fillna(0)
-            # df_task_per_date.columns = [variant_id]
-            df_task_per_date.index = pd.DatetimeIndex(df_task_per_date['date'].astype(str))
-            df_task_per_date.drop(['date'], axis=1, inplace=True)
-            return df_task_per_date
-
-    def query_task_instances_per_date_from_variant_id(self, variant_id):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.ID = {variant_id}
-                WITH date.truncate('week', ti.start_time) AS date, 
-                ti.ID AS variant, count(ti.ID) AS variant_{variant_id}
-                RETURN date, variant_{variant_id} ORDER BY date ASC
-                '''
-            # print(q)
-            result = session.run(q)
-            df_task_per_date = pd.DataFrame([dict(record) for record in result]).fillna(0)
-            # df_task_per_date = pd.DataFrame([dict(record) for record in result]).pivot(index='date',
-            #                                                                            columns=variant_id).fillna(0)
-            # df_task_per_date.columns = [variant_id]
-            df_task_per_date.index = pd.DatetimeIndex(df_task_per_date['date'].astype(str))
-            df_task_per_date.drop(['date'], axis=1, inplace=True)
-            return df_task_per_date
-
-    def query_task_instances_per_date_from_variant_ids(self, variant_ids):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance) WHERE ti.ID IN {variant_ids}
-                WITH date.truncate('week', ti.start_time) AS date, 
-                ti.ID AS variant, count(ti.ID) AS count
-                RETURN date, variant, count ORDER BY date ASC
-                '''
-            # print(q)
-            result = session.run(q)
-            # df_task_per_date = pd.DataFrame([dict(record) for record in result]).fillna(0)
-            df_task_per_date = pd.DataFrame([dict(record) for record in result]).pivot(index='date',
-                                                                                       columns='variant').fillna(0)
-            df_task_per_date.columns = df_task_per_date.columns.droplevel(0)
-            df_task_per_date.index = pd.DatetimeIndex(df_task_per_date.index.astype(str))
-            # df_task_per_date.drop(['date'], axis=1, inplace=True)
-            return df_task_per_date
-
-    def query_case_durations_from_variant_ids(self, variant_ids):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance)-[:CORR]->(n:Entity)<-[:CORR]-(e:Event) 
-                    WHERE ti.ID IN {variant_ids} AND n.EntityType = "case"
-                WITH DISTINCT e.case AS case, duration.inSeconds(MIN(e.timestamp), MAX(e.timestamp)).minutes AS duration
-                RETURN duration
-                '''
-            result = session.run(q)
-            durations = []
-            for record in result:
-                duration = record["duration"]/60/24
-                durations.append(duration)
-        return durations
-
-    def query_case_durations_outside_variant_ids(self, variant_ids):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti:TaskInstance)-[:CORR]->(n:Entity)<-[:CORR]-(e:Event) 
-                    WHERE NOT ti.ID IN {variant_ids} AND n.EntityType = "case"
-                WITH DISTINCT e.case AS case, duration.inSeconds(MIN(e.timestamp), MAX(e.timestamp)).minutes AS duration
-                RETURN duration
-                '''
-            result = session.run(q)
-            durations = []
-            for record in result:
-                duration = record["duration"]/60/24
-                durations.append(duration)
-        return durations
-
-    def query_case_durations_from_variant_ids_two_sets(self, variant_ids_1, variant_ids_2):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti1:TaskInstance)-[:CORR]->(n:Entity)<-[:CORR]-(ti2:TaskInstance)
-                    WHERE ti1.ID IN {variant_ids_1} AND ti2.ID IN {variant_ids_2} AND n.EntityType = "case"
-                MATCH (e:Event)-[:CORR]->(n:Entity)
-                WITH DISTINCT e.case AS case, duration.inSeconds(MIN(e.timestamp), MAX(e.timestamp)).minutes AS duration
-                RETURN duration
-                '''
-            result = session.run(q)
-            durations = []
-            for record in result:
-                duration = record["duration"]/60/24
-                durations.append(duration)
-        return durations
-
-    def query_case_durations_from_variant_ids_three_sets(self, variant_ids_1, variant_ids_2, variant_ids_3):
-        with self.driver.session() as session:
-            q = f'''
-                MATCH (ti1:TaskInstance) WHERE ti1.ID IN {variant_ids_1}
-                MATCH (ti2:TaskInstance) WHERE ti2.ID IN {variant_ids_2} AND ti2.cID = ti1.cID  AND ID(ti1) <> ID(ti2)
-                MATCH (ti3:TaskInstance) WHERE ti3.ID IN {variant_ids_3} AND ti3.cID = ti2.cID
-                MATCH (n:Entity {{EntityType: 'case'}}) WHERE n.ID = ti3.cID
-                MATCH (e:Event)-[:CORR]->(n)
-                WITH DISTINCT e.case AS case, duration.inSeconds(MIN(e.timestamp), MAX(e.timestamp)).minutes AS duration
-                RETURN duration
-                '''
-            result = session.run(q)
-            durations = []
-            for record in result:
-                duration = record["duration"]/60/24
-                durations.append(duration)
-        return durations
+            df_subgraph_edges = pd.DataFrame([dict(record) for record in result])
+        return df_subgraph_edges
 
 
 def run_query(driver, query):

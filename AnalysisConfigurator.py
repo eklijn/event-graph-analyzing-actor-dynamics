@@ -10,6 +10,7 @@ class AnalysisConfigurator:
         self.cluster_min_variant_length = analysis_confs.cluster_min_variant_length[self.graph]
         self.cluster_variants_to_exclude = analysis_confs.cluster_variants_to_exclude[self.graph]
         self.cluster_include_remainder = analysis_confs.cluster_include_remainder[self.graph]
+        self.leftover_cluster = analysis_confs.leftover_cluster[self.graph]
         self.decomposition_property = analysis_confs.decomposition_property[self.graph]
         self.tasks_overlap_test = analysis_confs.tasks_overlap_test[self.graph]
         # self.merged_task_cluster_to_mine = analysis_confs.merged_task_cluster_to_mine[self.graph]
@@ -63,6 +64,9 @@ class AnalysisConfigurator:
 
     def get_cluster_include_remainder(self):
         return self.cluster_include_remainder
+
+    def get_leftover_cluster(self):
+        return self.leftover_cluster
 
     def get_decomposition_property(self):
         return self.decomposition_property

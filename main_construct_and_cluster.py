@@ -25,7 +25,7 @@ ac = AnalysisConfigurator(graph)
 # (2) install APOC plugin
 # (3) specify path to import directory of neo4j database:
 path_to_neo4j_import_directory = 'C:\\Users\\s111402\\.Neo4jDesktop\\relate-data\dbmss\\' \
-                                 'dbms-95e392fb-324f-40c5-a2ec-c7cdfd0eb78e\\import\\'
+                                 'dbms-f19b9253-8f66-47bc-9f16-23fd1759a6a2\\import\\'
 # (4) set "step_preprocess" and "step_create_event_graph" to true:
 step_preprocess = False
 step_construct_event_graph = False
@@ -34,9 +34,10 @@ step_construct_event_graph = False
 # (5) set "step_construct_high_level_events" to true to construct high level events:
 # and set "step_construct_clusters" to true to perform clustering and construct clusters:
 step_construct_high_level_events = False
-step_construct_clusters = True
-step_add_task_instance_ids = True
+step_construct_clusters = False
 
+step_add_task_instance_ids = False
+step_visualize_task_variants_colored = True
 
 # ------------------------------ END CONFIG ---------------------------- #
 
@@ -50,7 +51,8 @@ if step_construct_event_graph:
         .construct()
 
 if step_construct_high_level_events:
-    hle_constr = HighLevelEventConstructor(gc.get_password(), graph, gc.get_entity_labels(), gc.get_action_lifecycle_labels())
+    hle_constr = HighLevelEventConstructor(gc.get_password(), graph, gc.get_entity_labels(),
+                                           gc.get_action_lifecycle_labels())
     hle_constr.construct()
     hle_constr.set_task_instance_ids()
 
@@ -59,4 +61,13 @@ if step_construct_clusters:
     tcm = TaskClusterModule(graph, ac.get_analysis_directory(), ac.get_min_variant_freq())
     cc = ClusterConstructor(gc.get_password(), graph, gc.get_entity_labels(), gc.get_action_lifecycle_labels())
     cc.remove_cluster_constructs()
-    cc.construct_clusters(tcm.encode_and_cluster(ac.get_cluster_min_variant_length(), ac.get_num_clusters()))
+    # cc.construct_clusters(tcm.encode_and_cluster(ac.get_cluster_min_variant_length(), ac.get_num_clusters()))
+    cc.construct_clusters(tcm.encode_and_cluster_specific(ac.get_cluster_min_variant_length(),
+                                                          ac.get_cluster_variants_to_exclude(), ac.get_num_clusters(),
+                                                          ac.get_cluster_include_remainder(),
+                                                          ac.get_clustering_instance_description()))
+
+# [2] VISUALIZATION of TASK CLUSTER VARIANTS
+if step_visualize_task_variants_colored:
+    vv = VariantVisualizer(graph=graph, analysis_directory=ac.get_analysis_directory())
+    vv.visualize_variants_colored()

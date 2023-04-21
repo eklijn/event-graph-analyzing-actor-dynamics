@@ -11,6 +11,7 @@ num_clusters = {}
 cluster_min_variant_length = {}
 cluster_variants_to_exclude = {}
 cluster_include_remainder = {}
+leftover_cluster = {}
 
 decomposition_property = {}
 
@@ -45,11 +46,12 @@ dfg_resource_inter_start_end_date = {}
 
 for graph in ["bpic2017_case_attr",
               "bpic2017_offer_id"]:
-    min_variant_freq[graph] = 10
-    num_clusters[graph] = 20
+    min_variant_freq[graph] = 2
+    num_clusters[graph] = 23
     cluster_min_variant_length[graph] = 2
-    cluster_variants_to_exclude[graph] = []
-    cluster_include_remainder[graph] = False
+    cluster_variants_to_exclude[graph] = [16]
+    cluster_include_remainder[graph] = True
+    leftover_cluster[graph] = 22
 
     decomposition_property[graph] = "offer_tracker"
 

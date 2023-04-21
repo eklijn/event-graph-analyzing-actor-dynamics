@@ -13,12 +13,12 @@ class ClusterConstructor:
         self.entity_labels[1].append('cID')
         self.action_lifecycle_label = action_lifecycle_label
 
-    def construct_clusters(self, df_patterns_clustered, use_apoc=True):
+    def construct_clusters(self, df_variants_clustered, use_apoc=False):
         pr = PerformanceRecorder(self.name_data_set, 'constructing_clusters')
         if use_apoc:
-            construct_clusters_apoc(df_patterns_clustered, self.driver, pr)
+            construct_clusters_apoc(df_variants_clustered, self.driver, pr)
         else:
-            construct_clusters(df_patterns_clustered, self.driver, pr)
+            construct_clusters(df_variants_clustered, self.driver, pr)
         pr.record_total_performance()
         pr.save_to_file()
 
@@ -38,7 +38,7 @@ def construct_clusters_apoc(df_variants_clustered, driver, performance_recorder)
                 "MATCH (ti:TaskInstance) WHERE ti.path = {row['path']}
                  RETURN ti",
                 "WITH ti
-                 SET ti.cluster = {row['cluster']}",
+                 SET ti.cluster = "{row['cluster']}"",
                 {{batchSize:100}})'''
             run_query(driver, query_write_clusters_to_task_instances)
     performance_recorder.record_performance("write_clusters_to_task_instances")
@@ -76,7 +76,7 @@ def construct_clusters(df_variants_clustered, driver, performance_recorder):
                 MATCH (ti:TaskInstance) WHERE ti.path = {row['path']}
                 CALL {{
                     WITH ti
-                    SET ti.cluster = {row['cluster']}
+                    SET ti.cluster = "{row['cluster']}"
                 }} IN TRANSACTIONS OF 100 ROWS'''
             run_query(driver, query_write_clusters_to_task_instances)
     performance_recorder.record_performance("write_clusters_to_task_instances")
