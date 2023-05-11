@@ -3,7 +3,7 @@ import pandas as pd
 
 class BPIC2017VariantEncoder:
 
-    def __init__(self, merge_events=False, event_priority="A_OW", use_count=False):
+    def __init__(self, merge_events=False, event_priority="A_O_W", use_count=False):
         self.encoding_description = f"{event_priority}"
         if use_count:
             self.encoding_description = self.encoding_description + "_c"
@@ -45,7 +45,7 @@ class BPIC2017VariantEncoder:
                         df_task_variants_encoded[column] = df_task_variants_encoded[column] * 4
                     elif column[0] == "O":
                         df_task_variants_encoded[column] = df_task_variants_encoded[column] * 2
-            return df_task_variants_encoded
+        return df_task_variants_encoded
 
     def get_encoding_description(self):
         return self.encoding_description

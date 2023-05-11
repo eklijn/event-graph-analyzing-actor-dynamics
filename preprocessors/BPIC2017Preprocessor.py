@@ -5,18 +5,15 @@ import pandas as pd
 class BPIC2017Preprocessor(GeneralPreprocessor.GeneralPreprocessor):
 
     def __init__(self, name_data_set, filename, column_names, separator, timestamp_format,
-                 path_to_neo4j_import_directory, use_sample, sample_cases):
+                 path_to_neo4j_import_directory):
         super().__init__(name_data_set, filename, column_names, separator, timestamp_format,
-                         path_to_neo4j_import_directory, use_sample, sample_cases)
+                         path_to_neo4j_import_directory)
 
     def preprocess(self):
         self.csv_data_set = pd.read_csv(f'raw_data/{self.filename}.csv', keep_default_na=True,
                                         usecols=self.column_names, sep=self.separator)
         self.csv_data_set.drop_duplicates(keep='first', inplace=True)
         self.csv_data_set.reset_index(drop=True, inplace=True)
-
-        if self.use_sample:
-            self.csv_data_set = self.csv_data_set[self.csv_data_set['case'].isin(self.sample_cases)]
 
         self.csv_data_set.rename(columns={self.column_names[0]: "case", self.column_names[1]: "activity",
                                           self.column_names[2]: "timestamp", self.column_names[3]: "resource",

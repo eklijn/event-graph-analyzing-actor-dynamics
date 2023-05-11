@@ -8,26 +8,23 @@ class AnalysisConfigurator:
 
         self.num_clusters = analysis_confs.num_clusters[self.graph]
         self.cluster_min_variant_length = analysis_confs.cluster_min_variant_length[self.graph]
-        self.cluster_variants_to_exclude = analysis_confs.cluster_variants_to_exclude[self.graph]
+        self.manual_clusters = analysis_confs.manual_clusters[self.graph]
         self.cluster_include_remainder = analysis_confs.cluster_include_remainder[self.graph]
         self.leftover_cluster = analysis_confs.leftover_cluster[self.graph]
         self.decomposition_property = analysis_confs.decomposition_property[self.graph]
         self.tasks_overlap_test = analysis_confs.tasks_overlap_test[self.graph]
         # self.merged_task_cluster_to_mine = analysis_confs.merged_task_cluster_to_mine[self.graph]
 
-        exclude_description = ""
-        if self.cluster_variants_to_exclude:
-            for variant_id in self.cluster_variants_to_exclude:
-                exclude_description += f"_{variant_id}"
+        self.clustering_instance_description = f"V{self.min_variant_freq}_C{self.num_clusters}_" \
+                                               f"L{self.cluster_min_variant_length}_"
+
+        if self.manual_clusters is not "":
+            self.clustering_instance_description += "_manual"
 
         if self.cluster_include_remainder:
-            self.clustering_instance_description = f"V{self.min_variant_freq}_C{self.num_clusters}_" \
-                                                   f"L{self.cluster_min_variant_length}_" \
-                                                   f"E{exclude_description}_Rinc"
+            self.clustering_instance_description += "_Rinc"
         else:
-            self.clustering_instance_description = f"V{self.min_variant_freq}_C{self.num_clusters}_" \
-                                                   f"L{self.cluster_min_variant_length}_" \
-                                                   f"E{exclude_description}_Rexc"
+            self.clustering_instance_description += "_Rexc"
 
         self.dfg_exclude_clusters = analysis_confs.dfg_exclude_clusters[self.graph]
         self.dfg_inter_show_threshold = analysis_confs.dfg_inter_show_threshold[self.graph]
@@ -59,8 +56,8 @@ class AnalysisConfigurator:
     def get_cluster_min_variant_length(self):
         return self.cluster_min_variant_length
 
-    def get_cluster_variants_to_exclude(self):
-        return self.cluster_variants_to_exclude
+    def get_manual_clusters(self):
+        return self.manual_clusters
 
     def get_cluster_include_remainder(self):
         return self.cluster_include_remainder

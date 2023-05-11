@@ -71,17 +71,76 @@ def construct_apoc(driver, entity_labels, action_lifecycle_label, performance_re
             AND NOT ()-[:DF_JOINT]->(e) AND NOT (e)-[:DF_JOINT]->()
             MATCH p=(e) RETURN p, e AS e1, e AS e2
          }}
-         RETURN [event in nodes(p) | event.{action_lifecycle_label[0]}] AS path, 
-            e1.{entity_labels[0][1]} AS resource, e1.{entity_labels[1][1]} AS case_id, 
+         RETURN [event in nodes(p) | event.{action_lifecycle_label[0]}] AS path,
+            e1.{entity_labels[0][1]} AS resource, e1.{entity_labels[1][1]} AS case_id,
             nodes(p) AS events, e1.timestamp AS start_time, e2.timestamp AS end_time",
         "WITH path, resource, case_id, events, start_time, end_time
-            CREATE (ti:TaskInstance {{path:path, rID:resource, cID:case_id, start_time:start_time, end_time:end_time, r_count: 1, c_count: 1}})
+            CREATE (ti:TaskInstance {{path:path, rID:resource, cID:case_id, start_time:start_time, end_time:end_time,
+                r_count: 1, c_count: 1}})
             WITH ti, events
             UNWIND events AS e
                 CREATE (e)<-[:CONTAINS]-(ti)",
         {{batchSize:100}})'''
     run_query(driver, query_create_ti_nodes)
     performance_recorder.record_performance('create_ti_nodes')
+
+    # split task instances that span multiple days - create new nodes (multi action task instances)
+    query_split_ti_nodes_create_new_1 = f'''
+            CALL apoc.periodic.iterate(
+            "MATCH (ti:TaskInstance)-[:CONTAINS]->(e:Event) WHERE date(ti.start_time) <> date(ti.end_time)
+             WITH ti, date(e.timestamp) AS date, e ORDER BY e.timestamp
+             WITH DISTINCT ti, date, COLLECT(e) AS events
+             WITH events[0] AS e_start, events[size(events)-1] AS e_end
+             WITH e_start, e_end
+             MATCH p=(e_start)-[:DF_JOINT*]->(e_end)
+             WITH p, e_start AS e1, e_end AS e2
+             RETURN [event in nodes(p) | event.{action_lifecycle_label[0]}] AS path, 
+                e1.{entity_labels[0][1]} AS resource, e1.{entity_labels[1][1]} AS case_id, 
+                nodes(p) AS events, e1.timestamp AS start_time, e2.timestamp AS end_time",
+            "WITH path, resource, case_id, events, start_time, end_time
+                CREATE (ti:TaskInstance {{path:path, rID:resource, cID:case_id, start_time:start_time, 
+                    end_time:end_time, r_count: 1, c_count: 1}})
+                WITH ti, events
+                UNWIND events AS e
+                CREATE (e)<-[:CONTAINS]-(ti)",
+            {{batchSize:100}})'''
+    run_query(driver, query_split_ti_nodes_create_new_1)
+    performance_recorder.record_performance('split_ti_nodes_create_new_1')
+
+    # split task instances that span multiple days - create new nodes (single action task instances)
+    query_split_ti_nodes_create_new_2 = f'''
+                CALL apoc.periodic.iterate(
+                "MATCH (ti:TaskInstance)-[:CONTAINS]->(e:Event) WHERE date(ti.start_time) <> date(ti.end_time)
+                 WITH ti, date(e.timestamp) AS date, e ORDER BY e.timestamp
+                 WITH DISTINCT ti, date, COLLECT(e) AS events
+                 WITH events[0] AS e_start, events[size(events)-1] AS e_end
+                 WITH e_start, e_end
+                 MATCH (e_start) MATCH (e_end) WHERE e_start = e_end
+                 MATCH p=(e_start)
+                 WITH p, e_start AS e1, e_end AS e2
+                 RETURN [event in nodes(p) | event.{action_lifecycle_label[0]}] AS path, 
+                    e1.{entity_labels[0][1]} AS resource, e1.{entity_labels[1][1]} AS case_id, 
+                    nodes(p) AS events, e1.timestamp AS start_time, e2.timestamp AS end_time",
+                "WITH path, resource, case_id, events, start_time, end_time
+                 CREATE (ti:TaskInstance {{path:path, rID:resource, cID:case_id, start_time:start_time, 
+                    end_time:end_time, r_count: 1, c_count: 1}})
+                 WITH ti, events
+                 UNWIND events AS e
+                 CREATE (e)<-[:CONTAINS]-(ti)",
+                {{batchSize:100}})'''
+    run_query(driver, query_split_ti_nodes_create_new_2)
+    performance_recorder.record_performance('split_ti_nodes_create_new_2')
+
+    # split task instances that span multiple days - remove old nodes
+    query_split_ti_nodes_remove_old = f'''
+                CALL apoc.periodic.iterate(
+                "MATCH (ti:TaskInstance) WHERE date(ti.start_time) <> date(ti.end_time)
+                 RETURN ti",
+                "WITH ti
+                 DETACH DELETE ti",
+                {{batchSize:100}})'''
+    run_query(driver, query_split_ti_nodes_remove_old)
+    performance_recorder.record_performance('split_ti_nodes_remove_old')
 
     for entity in entity_labels:
         # correlate task instances to entities

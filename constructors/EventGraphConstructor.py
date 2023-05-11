@@ -18,11 +18,11 @@ class EventGraphConstructor:
         # create performance recorder
         pr = PerformanceRecorder(self.filename, 'constructing_event_graph')
 
-        query_clean_db_relations = f'MATCH ()-[rel]->() CALL {{ WITH rel DELETE rel}} IN TRANSACTIONS OF 1000 ROWS'
+        query_clean_db_relations = f'MATCH ()-[rel]->() CALL {{WITH rel DELETE rel}} IN TRANSACTIONS OF 1000 ROWS'
         run_query(self.driver, query_clean_db_relations)
         pr.record_performance(f"clean_DB_relations")
 
-        query_clean_db_nodes = f'MATCH (n) CALL {{ WITH n DELETE n}} IN TRANSACTIONS OF 1000 ROWS'
+        query_clean_db_nodes = f'MATCH (n) CALL {{WITH n DELETE n}} IN TRANSACTIONS OF 1000 ROWS'
         run_query(self.driver, query_clean_db_nodes)
         pr.record_performance(f"clean_DB_nodes")
 
@@ -49,9 +49,9 @@ class EventGraphConstructor:
         pr.record_performance("import_event_nodes")
 
         # query_filter_events = f'MATCH (e:Event) WHERE e.lifecycle in ["SUSPEND","RESUME", "ATE_ABORT", "SCHEDULE", "WITHDRAW"] DELETE e'
-        query_filter_events = f'CALL {{MATCH (e:Event) WHERE e.lifecycle in ["SUSPEND","RESUME"] DELETE e}} IN TRANSACTIONS OF 1000 ROWS'
-        run_query(self.driver, query_filter_events)
-        pr.record_performance(f"filter_events_SUSPEND_RESUME")
+        # query_filter_events = f'CALL {{MATCH (e:Event) WHERE e.lifecycle in ["SUSPEND","RESUME"] DELETE e}} IN TRANSACTIONS OF 1000 ROWS'
+        # run_query(self.driver, query_filter_events)
+        # pr.record_performance(f"filter_events_SUSPEND_RESUME")
 
         if use_apoc:
             construct_apoc(self.driver, self.data_entities, pr)

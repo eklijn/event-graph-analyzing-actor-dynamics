@@ -4,7 +4,7 @@ import pandas as pd
 class GeneralPreprocessor:
 
     def __init__(self, name_data_set, filename, column_names, separator, timestamp_format,
-                 path_to_neo4j_import_directory, use_sample, sample_cases):
+                 path_to_neo4j_import_directory):
         self.name_data_set = name_data_set
         self.filename = filename
         self.column_names = column_names
@@ -12,8 +12,6 @@ class GeneralPreprocessor:
         self.timestamp_format = timestamp_format
         self.path_to_neo4j_import_directory = path_to_neo4j_import_directory
         self.csv_data_set = None
-        self.use_sample = use_sample
-        self.sample_cases = sample_cases
 
     def preprocess(self):
 
@@ -31,9 +29,6 @@ class GeneralPreprocessor:
                                      inplace=True)
         else:
             print("Undesired amount of columns.")
-
-        if self.use_sample:
-            self.csv_data_set = self.csv_data_set[self.csv_data_set['case'].isin(self.sample_cases)]
 
         self.csv_data_set['timestamp'] = pd.to_datetime(self.csv_data_set['timestamp'], format=self.timestamp_format)
         self.csv_data_set['timestamp'] = self.csv_data_set['timestamp'].map(

@@ -6,13 +6,12 @@ from constructors.HighLevelEventConstructor import HighLevelEventConstructor
 from constructors.ClusterConstructor import ClusterConstructor
 from TaskClusterModule import TaskClusterModule
 from VariantVisualizer import VariantVisualizer
-from DFGVisualizer import DFGVisualizer
 
 # --------------------------- BEGIN CONFIG ----------------------------- #
 # TO START:
 # specify the name of the graph:
 # graph = "operators"
-graph = "bpic2017_case_attr"
+graph = "bpic2017_susp_res"
 # and configure all the settings related to this graph name in "graph_confs.py"
 gc = GraphConfigurator(graph)
 # and configure all analysis parameters in "analysis_confs.py"
@@ -25,7 +24,7 @@ ac = AnalysisConfigurator(graph)
 # (2) install APOC plugin
 # (3) specify path to import directory of neo4j database:
 path_to_neo4j_import_directory = 'C:\\Users\\s111402\\.Neo4jDesktop\\relate-data\dbmss\\' \
-                                 'dbms-f19b9253-8f66-47bc-9f16-23fd1759a6a2\\import\\'
+                                 'dbms-75cf61d5-5ce3-4ffb-be62-b22a7cc7c5d8\\import\\'
 # (4) set "step_preprocess" and "step_create_event_graph" to true:
 step_preprocess = False
 step_construct_event_graph = False
@@ -34,9 +33,10 @@ step_construct_event_graph = False
 # (5) set "step_construct_high_level_events" to true to construct high level events:
 # and set "step_construct_clusters" to true to perform clustering and construct clusters:
 step_construct_high_level_events = False
-step_construct_clusters = False
+step_construct_clusters = True
 
 step_add_task_instance_ids = False
+# step_visualize_task_variants_colored = False
 step_visualize_task_variants_colored = True
 
 # ------------------------------ END CONFIG ---------------------------- #
@@ -59,11 +59,12 @@ if step_construct_high_level_events:
 # [1.b] CLUSTERING
 if step_construct_clusters:
     tcm = TaskClusterModule(graph, ac.get_analysis_directory(), ac.get_min_variant_freq())
+    # tcm.evaluate_silhouette_score(2, range(20, 50))
     cc = ClusterConstructor(gc.get_password(), graph, gc.get_entity_labels(), gc.get_action_lifecycle_labels())
     cc.remove_cluster_constructs()
     # cc.construct_clusters(tcm.encode_and_cluster(ac.get_cluster_min_variant_length(), ac.get_num_clusters()))
     cc.construct_clusters(tcm.encode_and_cluster_specific(ac.get_cluster_min_variant_length(),
-                                                          ac.get_cluster_variants_to_exclude(), ac.get_num_clusters(),
+                                                          ac.get_manual_clusters(), ac.get_num_clusters(),
                                                           ac.get_cluster_include_remainder(),
                                                           ac.get_clustering_instance_description()))
 

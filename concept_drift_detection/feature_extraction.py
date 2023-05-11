@@ -1,66 +1,185 @@
 from datetime import timedelta
 from sklearn.decomposition import PCA
 import numpy as np
+import pandas as pd
+from os import path
 
 
 class FeatureExtraction:
-    def __init__(self, event_graph):
+    def __init__(self, event_graph, exclude_cluster):
+        self.meta_directory = f"meta-output\\cd_detection\\"
         self.num_windows = None
+        self.exclude_cluster = exclude_cluster
         self.event_graph = event_graph
         self.task_subgraphs_nodes = []
         self.task_subgraphs_edges = []
         self.event_subgraphs_nodes = []
         self.event_subgraphs_edges = []
+        self.task_node_based_features = ["distinct_task_count", "distinct_task_variant_count",
+                                         "count_per_task", "count_per_task_variant", "case_count",
+                                         "total_task_count"]
+        self.event_node_based_features = ["distinct_activity_count", "distinct_activity_lifecycle_count",
+                                          "count_per_activity", "count_per_activity_lifecycle",
+                                          "total_activity_lifecycle_count"]
+        self.task_edge_based_features = ["distinct_task_handover_count_actor",
+                                         "distinct_task_variant_handover_count_actor",
+                                         "count_per_task_handover_actor", "count_per_task_variant_handover_actor",
+                                         "total_task_handover_count_actor", "distinct_task_handover_count_case",
+                                         "distinct_task_variant_handover_count_case",
+                                         "count_per_task_handover_case", "count_per_task_variant_handover_case",
+                                         "total_task_handover_count_case"]
+        self.event_edge_based_features = ["distinct_activity_handover_count_actor",
+                                          "distinct_activity_lifecycle_handover_count_actor",
+                                          "count_per_activity_handover_actor",
+                                          "count_per_activity_lifecycle_handover_actor",
+                                          "distinct_activity_handover_count_case",
+                                          "distinct_activity_lifecycle_handover_count_case",
+                                          "count_per_activity_handover_case",
+                                          "count_per_activity_lifecycle_handover_case"]
 
-    def query_subgraphs_for_feature_extraction(self, window_size):
+    def query_subgraphs_for_feature_extraction(self, window_size, feature_set=""):
         graph_start_date, graph_end_date = self.event_graph.query_start_end_date()
 
         # Calculate the number of windows
         self.num_windows = (graph_end_date - graph_start_date).days // window_size
 
         for window in range(0, self.num_windows):
-            self.task_subgraphs_nodes.append(
-                self.event_graph.query_task_subgraph_nodes(
-                    (graph_start_date + timedelta(days=window * window_size)).strftime("%Y-%m-%d"),
-                    (graph_start_date + timedelta(days=(window + 1) * window_size)).strftime(
-                        "%Y-%m-%d")))
-            # self.event_subgraphs_nodes.append(
-            #     self.event_graph.query_event_subgraph_nodes(
-            #         (graph_start_date + timedelta(days=window * window_size)).strftime("%Y-%m-%d"),
-            #         (graph_start_date + timedelta(days=(window + 1) * window_size)).strftime(
-            #             "%Y-%m-%d")))
-            # self.task_subgraphs_edges.append(
-            #     self.event_graph.query_task_subgraph_edges(
-            #         (graph_start_date + timedelta(days=window * window_size)).strftime("%Y-%m-%d"),
-            #         (graph_start_date + timedelta(days=(window + 1) * window_size)).strftime(
-            #             "%Y-%m-%d")))
-            # self.event_subgraphs_edges.append(
-            #     self.event_graph.query_event_subgraph_edges(
-            #         (graph_start_date + timedelta(days=window * window_size)).strftime("%Y-%m-%d"),
-            #         (graph_start_date + timedelta(days=(window + 1) * window_size)).strftime(
-            #             "%Y-%m-%d")))
+
+            if any(feature in feature_set for feature in self.task_node_based_features) or feature_set == "":
+                if path.exists(f"{self.meta_directory}task_node_ws{window_size}_w{window}.pkl"):
+                    df_task_subgraphs_nodes = pd.read_pickle(
+                        f"{self.meta_directory}task_node_ws{window_size}_w{window}.pkl")
+                else:
+                    df_task_subgraphs_nodes = self.event_graph.query_task_subgraph_nodes(
+                        (graph_start_date + timedelta(days=window * window_size)).strftime("%Y-%m-%d"),
+                        (graph_start_date + timedelta(days=(window + 1) * window_size)).strftime(
+                            "%Y-%m-%d"), self.exclude_cluster)
+                    df_task_subgraphs_nodes.to_pickle(
+                        f"{self.meta_directory}task_node_ws{window_size}_w{window}.pkl")
+                self.task_subgraphs_nodes.append(df_task_subgraphs_nodes)
+
+            if any(feature in feature_set for feature in self.event_node_based_features) or feature_set == "":
+                if path.exists(f"{self.meta_directory}event_node_ws{window_size}_w{window}.pkl"):
+                    df_event_subgraphs_nodes = pd.read_pickle(
+                        f"{self.meta_directory}event_node_ws{window_size}_w{window}.pkl")
+                else:
+                    df_event_subgraphs_nodes = self.event_graph.query_event_subgraph_nodes(
+                        (graph_start_date + timedelta(days=window * window_size)).strftime("%Y-%m-%d"),
+                        (graph_start_date + timedelta(days=(window + 1) * window_size)).strftime(
+                            "%Y-%m-%d"))
+                    df_event_subgraphs_nodes.to_pickle(
+                        f"{self.meta_directory}event_node_ws{window_size}_w{window}.pkl")
+                self.event_subgraphs_nodes.append(df_event_subgraphs_nodes)
+
+            if any(feature in feature_set for feature in self.task_edge_based_features) or feature_set == "":
+                if path.exists(f"{self.meta_directory}task_edge_ws{window_size}_w{window}.pkl"):
+                    df_task_subgraphs_edges = pd.read_pickle(
+                        f"{self.meta_directory}task_edge_ws{window_size}_w{window}.pkl")
+                else:
+                    df_task_subgraphs_edges = self.event_graph.query_task_subgraph_edges(
+                        (graph_start_date + timedelta(days=window * window_size)).strftime("%Y-%m-%d"),
+                        (graph_start_date + timedelta(days=(window + 1) * window_size)).strftime(
+                            "%Y-%m-%d"), self.exclude_cluster)
+                    df_task_subgraphs_edges.to_pickle(
+                        f"{self.meta_directory}task_edge_ws{window_size}_w{window}.pkl")
+                self.task_subgraphs_edges.append(df_task_subgraphs_edges)
+
+            if any(feature in feature_set for feature in self.event_edge_based_features) or feature_set == "":
+                if path.exists(f"{self.meta_directory}event_edge_ws{window_size}_w{window}.pkl"):
+                    df_event_subgraphs_edges = pd.read_pickle(
+                        f"{self.meta_directory}event_edge_ws{window_size}_w{window}.pkl")
+                else:
+                    df_event_subgraphs_edges = self.event_graph.query_event_subgraph_edges(
+                        (graph_start_date + timedelta(days=window * window_size)).strftime("%Y-%m-%d"),
+                        (graph_start_date + timedelta(days=(window + 1) * window_size)).strftime(
+                            "%Y-%m-%d"))
+                    df_event_subgraphs_edges.to_pickle(
+                        f"{self.meta_directory}event_edge_ws{window_size}_w{window}.pkl")
+                self.event_subgraphs_edges.append(df_event_subgraphs_edges)
 
     def apply_feature_extraction(self, features, actor="", actor_1="", actor_2=""):
-        # feature_vectors = []
         feature_vectors = [[] for i in range(0, self.num_windows)]
         for feature in features:
             results = []
+            # task node based features
             if feature == "case_count":
                 results = extract_number_of_cases(self.task_subgraphs_nodes, actor)
             if feature == "distinct_task_count":
-                results = extract_distinct_task_count(self.task_subgraphs_nodes, actor)
+                results = extract_distinct_performance_instance_count(self.task_subgraphs_nodes, 'task', actor)
+            if feature == "total_task_count":
+                results = extract_total_performance_instance_count(self.task_subgraphs_nodes, 'task', actor)
             if feature == "distinct_task_variant_count":
-                results = extract_distinct_task_variant_count(self.task_subgraphs_nodes, actor)
-            if feature == "distinct_activity_count":
-                results = extract_distinct_activity_count(self.event_subgraphs_nodes, actor)
-            if feature == "distinct_activity_lifecycle_count":
-                results = extract_distinct_activity_lifecycle_count(self.event_subgraphs_nodes, actor)
+                results = extract_distinct_performance_instance_count(self.task_subgraphs_nodes, 'task_variant', actor)
             if feature == "count_per_task":
-                results = extract_count_per_task(self.task_subgraphs_nodes, actor)
+                results = extract_count_per_performance_instance_normalized(self.task_subgraphs_nodes, 'task', actor)
+                # results = extract_count_per_performance_instance(self.task_subgraphs_nodes, 'task', actor)
+            if feature == "count_per_task_variant":
+                results = extract_count_per_performance_instance_normalized(self.task_subgraphs_nodes, 'task_variant',
+                                                                            actor)
+                # results = extract_count_per_performance_instance(self.task_subgraphs_nodes, 'task_variant', actor)
+
+            # task edge based features -- actor
+            if feature == "distinct_task_handover_count_actor":
+                results = extract_distinct_handover_count(self.task_subgraphs_edges, 'task', actor_1, actor_2,
+                                                          'resource')
+            if feature == "total_task_handover_count_actor":
+                results = extract_total_handover_count(self.task_subgraphs_edges, 'task', actor_1, actor_2, 'resource')
+            if feature == "distinct_task_variant_handover_count_actor":
+                results = extract_distinct_handover_count(self.task_subgraphs_edges, 'task_variant', actor_1, actor_2,
+                                                          'resource')
+            if feature == "count_per_task_handover_actor":
+                results = extract_count_per_handover_normalized(self.task_subgraphs_edges, 'task', actor_1, actor_2,
+                                                                'resource')
+                # results = extract_count_per_handover(self.task_subgraphs_edges, 'task', actor_1, actor_2, 'resource')
+            if feature == "count_per_task_variant_handover_actor":
+                results = extract_count_per_handover_normalized(self.task_subgraphs_edges, 'task_variant', actor_1,
+                                                                actor_2, 'resource')
+                # results = extract_count_per_handover(self.task_subgraphs_edges, 'task_variant', actor_1, actor_2,
+                #                                      'resource')
+            # task edge based features -- case
+            if feature == "distinct_task_handover_count_case":
+                results = extract_distinct_handover_count(self.task_subgraphs_edges, 'task', actor_1, actor_2, 'case')
+            if feature == "total_task_handover_count_case":
+                results = extract_total_handover_count(self.task_subgraphs_edges, 'task', actor_1, actor_2, 'case')
+            if feature == "distinct_task_variant_handover_count_case":
+                results = extract_distinct_handover_count(self.task_subgraphs_edges, 'task_variant', actor_1, actor_2,
+                                                          'case')
+            if feature == "count_per_task_handover_case":
+                results = extract_count_per_handover_normalized(self.task_subgraphs_edges, 'task', actor_1, actor_2,
+                                                                'case')
+                # results = extract_count_per_handover(self.task_subgraphs_edges, 'task', actor_1, actor_2, 'case')
+            if feature == "count_per_task_variant_handover_case":
+                results = extract_count_per_handover_normalized(self.task_subgraphs_edges, 'task_variant', actor_1,
+                                                                actor_2, 'case')
+                # results = extract_count_per_handover(self.task_subgraphs_edges, 'task_variant', actor_1, actor_2,
+                #                                      'case')
+
+            # event node based features
+            if feature == "distinct_activity_lifecycle_count":
+                results = extract_distinct_performance_instance_count(self.event_subgraphs_nodes, 'activity_lifecycle',
+                                                                      actor)
             if feature == "count_per_activity_lifecycle":
-                results = extract_count_per_activity(self.event_subgraphs_nodes, actor)
-            if feature == "count_per_activity":
-                results = extract_count_per_activity_lifecycle(self.event_subgraphs_nodes, actor)
+                results = extract_count_per_performance_instance_normalized(self.event_subgraphs_nodes,
+                                                                            'activity_lifecycle', actor)
+            if feature == "total_activity_lifecycle_count":
+                results = extract_total_performance_instance_count(self.event_subgraphs_nodes, 'activity_lifecycle',
+                                                                   actor)
+
+            # event edge based features -- actor
+            if feature == "distinct_activity_lifecycle_handover_count_actor":
+                results = extract_distinct_handover_count(self.event_subgraphs_edges, 'activity_lifecycle', actor_1,
+                                                          actor_2, 'resource')
+            if feature == "count_per_activity_lifecycle_handover_actor":
+                results = extract_count_per_handover_normalized(self.event_subgraphs_edges, 'activity_lifecycle',
+                                                                actor_1, actor_2, 'resource')
+            # event edge based features -- case
+            if feature == "distinct_activity_lifecycle_handover_count_case":
+                results = extract_distinct_handover_count(self.event_subgraphs_edges, 'activity_lifecycle', actor_1,
+                                                          actor_2, 'case')
+            if feature == "count_per_activity_lifecycle_handover_case":
+                results = extract_count_per_handover_normalized(self.event_subgraphs_edges, 'activity_lifecycle',
+                                                                actor_1, actor_2, 'case')
+
             # more features
             for i in range(0, len(results)):
                 for result in results[i]:
@@ -129,59 +248,17 @@ class FeatureExtraction:
         return reduced_features
 
 
-def extract_distinct_task_count(task_subgraphs_nodes, actor):
+def extract_distinct_performance_instance_count(subgraphs_nodes, node_type, actor):
     results = []
-    for df_subgraph in task_subgraphs_nodes:
-        all_tasks = []
+    for df_subgraph in subgraphs_nodes:
+        all_instances = []
         for index, row in df_subgraph.iterrows():
             if actor == "":
-                all_tasks.append(row['task'])
+                all_instances.append(row[node_type])
             else:
                 if row['actor'] == actor:
-                    all_tasks.append(row['task'])
-        results.append([('distinct_task_count', len(set(all_tasks)))])
-    return results
-
-
-def extract_distinct_task_variant_count(task_subgraphs_nodes, actor):
-    results = []
-    for df_subgraph in task_subgraphs_nodes:
-        all_task_variants = []
-        for index, row in df_subgraph.iterrows():
-            if actor == "":
-                all_task_variants.append(row['task_variant'])
-            else:
-                if row['actor'] == actor:
-                    all_task_variants.append(row['task_variant'])
-        results.append([('distinct_task_variant_count', len(set(all_task_variants)))])
-    return results
-
-
-def extract_distinct_activity_count(event_subgraphs_nodes, actor):
-    results = []
-    for df_subgraph in event_subgraphs_nodes:
-        all_activity = []
-        for index, row in df_subgraph.iterrows():
-            if actor == "":
-                all_activity.append(row['activity'])
-            else:
-                if row['actor'] == actor:
-                    all_activity.append(row['activity'])
-        results.append([('distinct_activity_count', len(set(all_activity)))])
-    return results
-
-
-def extract_distinct_activity_lifecycle_count(event_subgraphs_nodes, actor):
-    results = []
-    for df_subgraph in event_subgraphs_nodes:
-        all_activity_lifecycle = []
-        for index, row in df_subgraph.iterrows():
-            if actor == "":
-                all_activity_lifecycle.append(row['activity_lifecycle'])
-            else:
-                if row['actor'] == actor:
-                    all_activity_lifecycle.append(row['activity_lifecycle'])
-        results.append([('distinct_activity_lifecycle_count', len(set(all_activity_lifecycle)))])
+                    all_instances.append(row[node_type])
+        results.append([(f'distinct_{node_type}_count', len(set(all_instances)))])
     return results
 
 
@@ -199,93 +276,174 @@ def extract_number_of_cases(task_subgraphs_nodes, actor):
     return results
 
 
-def extract_count_per_task(task_subgraphs_nodes, actor):
+def extract_count_per_performance_instance(subgraphs_nodes, node_type, actor):
     results = []
-    for df_subgraph in task_subgraphs_nodes:
-        count_per_task = {}
-        count_per_task = {"total": 0}
+    for df_subgraph in subgraphs_nodes:
+        count_per_instance = {}
+        total_count = 0
         for index, row in df_subgraph.iterrows():
             if actor == "":
-                if not row['task'] in count_per_task.keys():
-                    count_per_task[row['task']] = 0
-                count_per_task[row['task']] += 1
-                count_per_task["total"] += 1
+                if not row[node_type] in count_per_instance.keys():
+                    count_per_instance[row[node_type]] = 0
+                count_per_instance[row[node_type]] += 1
             else:
                 if row['actor'] == actor:
-                    if not row['task'] in count_per_task.keys():
-                        count_per_task[row['task']] = 0
-                    count_per_task[row['task']] += 1
-                    count_per_task["total"] += 1
-        subgraph_results = [('Task_count' + str(task), count_per_task[task]) for task in count_per_task.keys()]
+                    if not row[node_type] in count_per_instance.keys():
+                        count_per_instance[row[node_type]] = 0
+                    count_per_instance[row[node_type]] += 1
+        subgraph_results = [(f'{node_type}_count' + str(instance), count_per_instance[instance]) for instance in
+                            count_per_instance.keys()]
         results.append(subgraph_results)
     return results
 
 
-def extract_count_per_task_variant(task_subgraphs_nodes, actor):
+def extract_count_per_performance_instance_normalized(subgraphs_nodes, node_type, actor):
     results = []
-    for df_subgraph in task_subgraphs_nodes:
-        count_per_task_variant = {}
-        count_per_task_variant = {"total": 0}
+    for df_subgraph in subgraphs_nodes:
+        count_per_instance = {}
+        total_count = 0
         for index, row in df_subgraph.iterrows():
             if actor == "":
-                if not row['task_variant'] in count_per_task_variant.keys():
-                    count_per_task_variant[row['task_variant']] = 0
-                count_per_task_variant[row['task_variant']] += 1
-                count_per_task_variant["total"] += 1
+                if not row[node_type] in count_per_instance.keys():
+                    count_per_instance[row[node_type]] = 0
+                count_per_instance[row[node_type]] += 1
+                total_count += 1
             else:
                 if row['actor'] == actor:
-                    if not row['task_variant'] in count_per_task_variant.keys():
-                        count_per_task_variant[row['task_variant']] = 0
-                    count_per_task_variant[row['task_variant']] += 1
-                    count_per_task_variant["total_variant"] += 1
-        subgraph_results = [('Task_variant_count' + str(task_variant), count_per_task_variant[task_variant]) for
-                            task_variant in count_per_task_variant.keys()]
+                    if not row[node_type] in count_per_instance.keys():
+                        count_per_instance[row[node_type]] = 0
+                    count_per_instance[row[node_type]] += 1
+                    total_count += 1
+        subgraph_results = [(f'{node_type}_count' + str(instance), count_per_instance[instance] / total_count * 100) for
+                            instance in
+                            count_per_instance.keys()]
         results.append(subgraph_results)
     return results
 
 
-def extract_count_per_activity(event_subgraphs_nodes, actor):
+def extract_total_performance_instance_count(subgraphs_nodes, node_type, actor):
     results = []
-    for df_subgraph in event_subgraphs_nodes:
-        # count_per_activity = {}
-        count_per_activity = {"total": 0}
+    for df_subgraph in subgraphs_nodes:
+        all_instances = []
         for index, row in df_subgraph.iterrows():
             if actor == "":
-                if not row['activity'] in count_per_activity.keys():
-                    count_per_activity[row['activity']] = 0
-                count_per_activity[row['activity']] += 1
-                count_per_activity["total"] += 1
+                all_instances.append(row[node_type])
             else:
                 if row['actor'] == actor:
-                    if not row['activity'] in count_per_activity.keys():
-                        count_per_activity[row['activity']] = 0
-                    count_per_activity[row['activity']] += 1
-                    count_per_activity["total"] += 1
-        subgraph_results = [
-            ('Activity_count' + str(activity), count_per_activity[activity]) for activity in count_per_activity.keys()]
+                    all_instances.append(row[node_type])
+        results.append([(f'total_{node_type}_count', len(all_instances))])
+    return results
+
+
+def extract_distinct_handover_count(subgraphs_edges, node_type, actor_1="", actor_2="", entity_type=""):
+    results = []
+    for df_subgraph in subgraphs_edges:
+        if entity_type is not "":
+            df_subgraph = df_subgraph[df_subgraph["entity_type"] == entity_type]
+        all_handovers = []
+        for index, row in df_subgraph.iterrows():
+            if actor_1 == "" and actor_2 == "":
+                all_handovers.append(f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}")
+            elif actor_1 == "":
+                if row['actor_2'] == actor_2:
+                    all_handovers.append(f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}")
+            elif actor_2 == "":
+                if row['actor_1'] == actor_1:
+                    all_handovers.append(f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}")
+            else:
+                if row['actor_1'] == actor_1 and row['actor_2'] == actor_2:
+                    all_handovers.append(f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}")
+        results.append([(f"distinct_{node_type}_handover_count", len(set(all_handovers)))])
+    return results
+
+
+def extract_total_handover_count(subgraphs_edges, node_type, actor_1="", actor_2="", entity_type=""):
+    results = []
+    for df_subgraph in subgraphs_edges:
+        if entity_type is not "":
+            df_subgraph = df_subgraph[df_subgraph["entity_type"] == entity_type]
+        all_handovers = []
+        for index, row in df_subgraph.iterrows():
+            if actor_1 == "" and actor_2 == "":
+                all_handovers.append(f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}")
+            elif actor_1 == "":
+                if row['actor_2'] == actor_2:
+                    all_handovers.append(f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}")
+            elif actor_2 == "":
+                if row['actor_1'] == actor_1:
+                    all_handovers.append(f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}")
+            else:
+                if row['actor_1'] == actor_1 and row['actor_2'] == actor_2:
+                    all_handovers.append(f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}")
+        results.append([(f"total_{node_type}_handover_count", len(all_handovers))])
+    return results
+
+
+def extract_count_per_handover(subgraphs_edges, node_type, actor_1="", actor_2="", entity_type=""):
+    results = []
+    for df_subgraph in subgraphs_edges:
+        if entity_type is not "":
+            df_subgraph = df_subgraph[df_subgraph["entity_type"] == entity_type]
+        count_per_handover = {}
+        for index, row in df_subgraph.iterrows():
+            if actor_1 == "" and actor_2 == "":
+                if f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}" not in count_per_handover.keys():
+                    count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] = 0
+                count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] += 1
+            elif actor_1 == "":
+                if row['actor_2'] == actor_2:
+                    if f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}" not in count_per_handover.keys():
+                        count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] = 0
+                    count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] += 1
+            elif actor_2 == "":
+                if row['actor_1'] == actor_1:
+                    if f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}" not in count_per_handover.keys():
+                        count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] = 0
+                    count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] += 1
+            else:
+                if row['actor_1'] == actor_1 and row['actor_2'] == actor_2:
+                    if f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}" not in count_per_handover.keys():
+                        count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] = 0
+                    count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] += 1
+        subgraph_results = [(f'{node_type}_count_' + str(handover), count_per_handover[handover]) for handover in
+                            count_per_handover.keys()]
         results.append(subgraph_results)
     return results
 
 
-def extract_count_per_activity_lifecycle(event_subgraphs_nodes, actor):
+def extract_count_per_handover_normalized(subgraphs_edges, node_type, actor_1="", actor_2="", entity_type=""):
     results = []
-    for df_subgraph in event_subgraphs_nodes:
-        # count_per_activity_lifecycle = {}
-        count_per_activity_lifecycle = {"total": 0}
+    for df_subgraph in subgraphs_edges:
+        if entity_type is not "":
+            df_subgraph = df_subgraph[df_subgraph["entity_type"] == entity_type]
+        count_per_handover = {}
+        total_count = 0
         for index, row in df_subgraph.iterrows():
-            if actor == "":
-                if not row['activity_lifecycle'] in count_per_activity_lifecycle.keys():
-                    count_per_activity_lifecycle[row['activity_lifecycle']] = 0
-                count_per_activity_lifecycle[row['activity_lifecycle']] += 1
-                count_per_activity_lifecycle["total"] += 1
+            if actor_1 == "" and actor_2 == "":
+                if f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}" not in count_per_handover.keys():
+                    count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] = 0
+                count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] += 1
+                total_count += 1
+            elif actor_1 == "":
+                if row['actor_2'] == actor_2:
+                    if f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}" not in count_per_handover.keys():
+                        count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] = 0
+                    count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] += 1
+                    total_count += 1
+            elif actor_2 == "":
+                if row['actor_1'] == actor_1:
+                    if f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}" not in count_per_handover.keys():
+                        count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] = 0
+                    count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] += 1
+                    total_count += 1
             else:
-                if row['actor'] == actor:
-                    if not row['activity_lifecycle'] in count_per_activity_lifecycle.keys():
-                        count_per_activity_lifecycle[row['activity_lifecycle']] = 0
-                    count_per_activity_lifecycle[row['activity_lifecycle']] += 1
-                    count_per_activity_lifecycle["total"] += 1
-        subgraph_results = [
-            ('Activity_lifecycle_count' + str(activity_lifecycle), count_per_activity_lifecycle[activity_lifecycle]) for
-            activity_lifecycle in count_per_activity_lifecycle.keys()]
+                if row['actor_1'] == actor_1 and row['actor_2'] == actor_2:
+                    if f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}" not in count_per_handover.keys():
+                        count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] = 0
+                    count_per_handover[f"{row[f'{node_type}_1']}_{row[f'{node_type}_2']}"] += 1
+                    total_count += 1
+        subgraph_results = [(f'{node_type}_count_' + str(handover), count_per_handover[handover] / total_count * 100)
+                            for handover in
+                            count_per_handover.keys()]
         results.append(subgraph_results)
     return results

@@ -102,7 +102,7 @@ class EventGraph:
                 WITH DISTINCT ID, COUNT (*) AS {subset_filter[0]}_{cluster}
                 RETURN ID, {subset_filter[0]}_{cluster}
                 '''
-            print(q)
+            # print(q)
             result = session.run(q)
             df_subset_variant_frequencies_in_cluster = pd.DataFrame([dict(record) for record in result])
         return df_subset_variant_frequencies_in_cluster

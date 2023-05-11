@@ -1,17 +1,12 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from itertools import product
 import os
 
 from GraphConfigurator import GraphConfigurator
 from AnalysisConfigurator import AnalysisConfigurator
 from EventGraph import EventGraph
-from concept_drift_detection.feature_extraction import FeatureExtraction
-from concept_drift_detection import change_point_detection
+from concept_drift_detection import concept_drift_analysis
 
 # initialize graph and analysis settings
-graph = "bpic2017_case_attr"
+graph = "bpic2017_susp_res"
 gc = GraphConfigurator(graph)
 ac = AnalysisConfigurator(graph)
 eg = EventGraph(gc.get_password(), gc.get_entity_labels())
@@ -20,54 +15,49 @@ eg = EventGraph(gc.get_password(), gc.get_entity_labels())
 analysis_directory = os.path.join(ac.get_analysis_directory(), "concept_drift_detection")
 os.makedirs(analysis_directory, exist_ok=True)
 
-step_control_flow_drift_detection = False
-step_actor_drift_detection = True
+window_sizes = [7]
+penalties = [1.5, 2, 2.5, 3]
 
-############ CP DETECTION - control flow ##############
-if step_control_flow_drift_detection:
-    window_size = 7
+step_process_level_drift_detection = True
+# process_drift_feature_sets = {"total_actions": ["total_activity_lifecycle_count"],
+#                               "total_tasks": ["total_task_count"]}
+# process_drift_feature_sets = {"task_handovers_actor": ["count_per_task_handover_actor"]}
+process_drift_feature_sets = {"activity_lcs": ["count_per_activity_lifecycle"]}
+# process_drift_feature_sets = {"tasks": ["count_per_task"],
+#                               "task_variants": ["count_per_task_variant"],
+#                               "activity_lcs": ["count_per_activity_lifecycle"],
+#                               "task_handovers_case": ["count_per_task_handover_case"],
+#                               "task_variant_handovers_case": ["count_per_task_variant_handover_case"],
+#                               "activity_lc_handovers_case": ["count_per_activity_lifecycle_handover_case"]}
 
-    feature_settings = [[["distinct_task_count", "count_per_task"], 1.2],
-                        [["case_count"], 3]]
-    # [["distinct_activity_count", "count_per_activity"], 3],
-    # [["distinct_activity_lifecycle_count", "count_per_activity_lifecycle"], 3]]
+step_actor_drift_detection = False
+actor_drift_feature_sets = {"tasks": ["count_per_task"]}
+# actors = eg.query_actor_list(min_freq=1000)
+actors = ["User_27", "User_29"]
 
-    f_extr = FeatureExtraction(eg)
-    f_extr.query_subgraphs_for_feature_extraction(window_size)
+step_colab_drift_detection = False
+# colab_pairs = eg.query_colab_list()
+colab_pairs = [["User_87", "User_30"]]
 
-    for feature in feature_settings:
-        feature_names, features = f_extr.apply_feature_extraction(feature[0])
-        reduced_features = f_extr.pca_reduction(features, 'mle', normalize=True, normalize_function="max")
-        cp = change_point_detection.rpt_pelt(reduced_features, pen=feature[1])
-        print(f"Change points {feature[0]}: {cp}")
-        change_point_detection.plot_cosine_similarity(features, feature[0], window_size)
+step_plot_all_actor_frequency = False
 
-############ CP DETECTION - actor drift ##############
+if step_process_level_drift_detection:
+    concept_drift_analysis.detect_process_level_drift(window_sizes=window_sizes, penalties=penalties,
+                                                      feature_sets=process_drift_feature_sets,
+                                                      analysis_directory=analysis_directory, event_graph=eg,
+                                                      exclude_cluster=ac.get_leftover_cluster(), plot_drift=True)
+
 if step_actor_drift_detection:
-    actor_drift_directory = os.path.join(analysis_directory, "actor_drift")
-    os.makedirs(actor_drift_directory, exist_ok=True)
+    concept_drift_analysis.detect_actor_drift(window_sizes=window_sizes, penalties=penalties,
+                                              feature_sets=actor_drift_feature_sets, actor_list=actors,
+                                              analysis_directory=analysis_directory, event_graph=eg,
+                                              exclude_cluster=ac.get_leftover_cluster(), plot_drift=True)
 
-    window_sizes = [7]
-    penalties = [1, 2, 3]
-    feature_sets = [[["distinct_task_count", "count_per_task"], "tasks"]]
-                    # [["distinct_handover_count", "count_per_handover"], "handovers"],
-                    # [["distinct_task_variant_count", "count_per_task_variant"], "task_variants"]]
+if step_colab_drift_detection:
+    concept_drift_analysis.detect_colab_drift(window_sizes=window_sizes, penalties=penalties,
+                                              detailed_analysis=True, colab_list=colab_pairs,
+                                              analysis_directory=analysis_directory, event_graph=eg,
+                                              exclude_cluster=ac.get_leftover_cluster(), plot_drift=True)
 
-    actor_list = eg.query_actor_list()
-    # cp_settings = ["{}_{}".format(a_, b_) for a_, b_ in product(window_sizes, penalties)]
-
-    for window_size in window_sizes:
-        f_extr = FeatureExtraction(eg)
-        f_extr.query_subgraphs_for_feature_extraction(window_size)
-
-        for feature_set in feature_sets:
-            actor_drift_feature_directory = os.path.join(actor_drift_directory, feature_set[1])
-            os.makedirs(actor_drift_feature_directory, exist_ok=True)
-            df_actor_drift_points = pd.DataFrame(index=actor_list, columns=penalties)
-            for actor in actor_list:
-                # actor_feature_set = [f"{feature}_{actor}" for feature in feature_set[0]]
-                actor_feature_names, actor_features = f_extr.apply_feature_extraction(feature_set[0], actor=actor)
-                reduced_actor_features = f_extr.pca_reduction(actor_features, 'mle', normalize=True, normalize_function="max")
-                for pen in penalties:
-                    cp = change_point_detection.rpt_pelt(reduced_actor_features, pen=pen)
-                    print(f"Change points {feature_set[1]}: {cp}")
+if step_plot_all_actor_frequency:
+    concept_drift_analysis.plot_all_actor_activity(analysis_directory, eg)

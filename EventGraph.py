@@ -117,12 +117,12 @@ class EventGraph:
             end_time = datetime.datetime(net.year, net.month, net.day, net.hour, net.minute, int(net.second)).date()
         return start_time, end_time
 
-    def query_actor_list(self):
+    def query_actor_list(self, min_freq=0):
         with self.driver.session() as session:
             # language=Cypher
             q = f'''
-                MATCH (ti:TaskInstance)
-                WITH DISTINCT ti.rID AS actor
+                MATCH (ti:TaskInstance) WHERE ti.cluster IS NOT NULL
+                WITH DISTINCT ti.rID AS actor, COUNT(*) AS count WHERE count > {min_freq}
                 RETURN actor
                 '''
             result = session.run(q)
@@ -131,36 +131,64 @@ class EventGraph:
                 actor_list.append(record['actor'])
         return actor_list
 
-    def query_task_subgraph_nodes(self, start_date, end_date):
+    def query_colab_list(self):
         with self.driver.session() as session:
             # language=Cypher
             q = f'''
+                MATCH (ti1:TaskInstance)-[:DF_TI]->(ti2:TaskInstance) WHERE ti1.rID <> ti2.rID AND ti1.rID <> "User_1" 
+                    AND ti2.rID <> "User_1" AND ti1.cluster IS NOT NULL AND ti2.cluster IS NOT NULL
+                WITH DISTINCT ti1.rID AS actor_1, ti2.rID AS actor_2, count(*) AS count WHERE count > 100
+                RETURN actor_1, actor_2
+                '''
+            result = session.run(q)
+            actor_list = []
+            for record in result:
+                actor_list.append([record['actor_1'], record['actor_2']])
+        return actor_list
+
+    def query_task_subgraph_nodes(self, start_date, end_date, exclude_cluster=""):
+        where_exclude_cluster = ""
+        if not exclude_cluster == "":
+            where_exclude_cluster = f"AND ti.cluster <> \"{exclude_cluster}\""
+        with self.driver.session() as session:
+            q = f'''
                 MATCH (ti:TaskInstance) WHERE date("{start_date}") <= date(ti.start_time) 
-                    AND date(ti.end_time) <= date("{end_date}")
-                WITH ti.cluster AS task, ti.ID AS ti_id, ti.cID AS case, ti.rID AS actor,
+                    AND date(ti.end_time) <= date("{end_date}") AND ti.cluster IS NOT NULL {where_exclude_cluster}
+                WITH ti.cluster AS task, ti.ID AS task_variant, ti.cID AS case, ti.rID AS actor,
                     duration.inSeconds(ti.start_time, ti.end_time) AS duration
-                RETURN task, ti_id, case, actor, duration
+                RETURN task, task_variant, case, actor, duration
                 '''
             # print(q)
             result = session.run(q)
             df_subgraph_nodes = pd.DataFrame([dict(record) for record in result])
+            for index, row in df_subgraph_nodes.iterrows():
+                duration = row['duration']
+                duration_seconds = duration.hours_minutes_seconds[0] * 3600 + duration.hours_minutes_seconds[1] * 60 + duration.hours_minutes_seconds[2]
+                df_subgraph_nodes.loc[index, 'duration'] = duration_seconds
         return df_subgraph_nodes
 
-    def query_task_subgraph_edges(self, start_date, end_date, entity_type):
+    def query_task_subgraph_edges(self, start_date, end_date, exclude_cluster=""):
+        where_exclude_cluster = ""
+        if not exclude_cluster == "":
+            where_exclude_cluster = f"AND ti1.cluster <> \"{exclude_cluster}\" AND ti2.cluster <> \"{exclude_cluster}\""
         with self.driver.session() as session:
-            # language=Cypher
             q = f'''
-                MATCH (ti1:TaskInstance)-[:DF_TI {{EntityType:'{entity_type}'}}]->(ti2:TaskInstance) 
-                    WHERE date("{start_date}") <= date(ti1.end_time) 
-                    AND date(ti2.start_time) <= date("{end_date}")
-                WITH ti1.cluster AS task_1, ti2.cluster AS task_2, ti1.ID AS variant_1, ti2.ID AS variant_2, 
+                MATCH (ti1:TaskInstance)-[r:DF_TI]->(ti2:TaskInstance) 
+                    WHERE date("{start_date}") <= date(ti1.end_time) AND date(ti2.start_time) <= date("{end_date}") 
+                    AND ti1.cluster IS NOT NULL AND ti2.cluster IS NOT NULL {where_exclude_cluster}
+                WITH ti1.cluster AS task_1, ti2.cluster AS task_2, ti1.ID AS task_variant_1, ti2.ID AS task_variant_2, 
                     ti1.cID AS case_1, ti2.cID AS case_2, ti1.rID AS actor_1, ti2.rID AS actor_2,
-                    duration.inSeconds(ti1.end_time, ti2.start_time) AS duration
-                RETURN task_1, task_2, variant_1, variant_2, case_1, case_2, actor_1, actor_2, duration
+                    duration.inSeconds(ti1.end_time, ti2.start_time) AS duration, r.EntityType AS entity_type
+                RETURN task_1, task_2, task_variant_1, task_variant_2, case_1, case_2, actor_1, actor_2, duration, 
+                    entity_type
                 '''
             # print(q)
             result = session.run(q)
             df_subgraph_edges = pd.DataFrame([dict(record) for record in result])
+            for index, row in df_subgraph_edges.iterrows():
+                duration = row['duration']
+                duration_seconds = duration.hours_minutes_seconds[0] * 3600 + duration.hours_minutes_seconds[1] * 60 + duration.hours_minutes_seconds[2]
+                df_subgraph_edges.loc[index, 'duration'] = duration_seconds
         return df_subgraph_edges
 
     def query_event_subgraph_nodes(self, start_date, end_date):
@@ -177,23 +205,27 @@ class EventGraph:
             df_subgraph_nodes = pd.DataFrame([dict(record) for record in result])
         return df_subgraph_nodes
 
-    def query_event_subgraph_edges(self, start_date, end_date, entity_type):
+    def query_event_subgraph_edges(self, start_date, end_date):
         with self.driver.session() as session:
             # language=Cypher
             q = f'''
-                MATCH (e1:Event)-[:DF {{EntityType:'{entity_type}'}}]->(e2:Event) 
+                MATCH (e1:Event)-[r:DF]->(e2:Event) 
                     WHERE date("{start_date}") <= date(e1.timestamp) 
                     AND date(e2.timestamp) <= date("{end_date}")
                 WITH e1.activity AS activity_1, e2.activity AS activity_2, 
                     e1.activity_lifecycle AS activity_lifecycle_1, e2.activity_lifecycle AS activity_lifecycle_2, 
                     e1.case AS case_1, e2.case AS case_2, e1.resource AS actor_1, e2.resource AS actor_2,
-                    duration.inSeconds(e1.timestamp, e2.timestamp) AS duration
+                    duration.inSeconds(e1.timestamp, e2.timestamp) AS duration, r.EntityType AS entity_type
                 RETURN activity_1, activity_2, activity_lifecycle_1, activity_lifecycle_2, 
-                    case_1, case_2, actor_1, actor_2, duration
+                    case_1, case_2, actor_1, actor_2, duration, entity_type
                 '''
             # print(q)
             result = session.run(q)
             df_subgraph_edges = pd.DataFrame([dict(record) for record in result])
+            for index, row in df_subgraph_edges.iterrows():
+                duration = row['duration']
+                duration_seconds = duration.hours_minutes_seconds[0] * 3600 + duration.hours_minutes_seconds[1] * 60 + duration.hours_minutes_seconds[2]
+                df_subgraph_edges.loc[index, 'duration'] = duration_seconds
         return df_subgraph_edges
 
 
