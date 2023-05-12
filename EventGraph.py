@@ -91,7 +91,7 @@ class EventGraph:
             df_time_pending = pd.DataFrame([dict(record) for record in result])
             for index, row in df_time_pending.iterrows():
                 time_pending = row['time_pending']
-                time_pending_seconds = time_pending.hours_minutes_seconds[0] * 3600 + time_pending.hours_minutes_seconds[1] * 60 + time_pending.hours_minutes_seconds[2]
+                time_pending_seconds = time_pending.hours_minutes_seconds_nanoseconds[0] * 3600 + time_pending.hours_minutes_seconds_nanoseconds[1] * 60 + time_pending.hours_minutes_seconds_nanoseconds[2]
                 df_time_pending.loc[index, 'time_pending_seconds'] = time_pending_seconds
         return df_time_pending
 
@@ -163,7 +163,7 @@ class EventGraph:
             df_subgraph_nodes = pd.DataFrame([dict(record) for record in result])
             for index, row in df_subgraph_nodes.iterrows():
                 duration = row['duration']
-                duration_seconds = duration.hours_minutes_seconds[0] * 3600 + duration.hours_minutes_seconds[1] * 60 + duration.hours_minutes_seconds[2]
+                duration_seconds = duration.hours_minutes_seconds_nanoseconds[0] * 3600 + duration.hours_minutes_seconds_nanoseconds[1] * 60 + duration.hours_minutes_seconds_nanoseconds[2]
                 df_subgraph_nodes.loc[index, 'duration'] = duration_seconds
         return df_subgraph_nodes
 
@@ -187,7 +187,7 @@ class EventGraph:
             df_subgraph_edges = pd.DataFrame([dict(record) for record in result])
             for index, row in df_subgraph_edges.iterrows():
                 duration = row['duration']
-                duration_seconds = duration.hours_minutes_seconds[0] * 3600 + duration.hours_minutes_seconds[1] * 60 + duration.hours_minutes_seconds[2]
+                duration_seconds = duration.hours_minutes_seconds_nanoseconds[0] * 3600 + duration.hours_minutes_seconds_nanoseconds[1] * 60 + duration.hours_minutes_seconds_nanoseconds[2]
                 df_subgraph_edges.loc[index, 'duration'] = duration_seconds
         return df_subgraph_edges
 
@@ -224,7 +224,7 @@ class EventGraph:
             df_subgraph_edges = pd.DataFrame([dict(record) for record in result])
             for index, row in df_subgraph_edges.iterrows():
                 duration = row['duration']
-                duration_seconds = duration.hours_minutes_seconds[0] * 3600 + duration.hours_minutes_seconds[1] * 60 + duration.hours_minutes_seconds[2]
+                duration_seconds = duration.hours_minutes_seconds_nanoseconds[0] * 3600 + duration.hours_minutes_seconds_nanoseconds[1] * 60 + duration.hours_minutes_seconds_nanoseconds[2]
                 df_subgraph_edges.loc[index, 'duration'] = duration_seconds
         return df_subgraph_edges
 

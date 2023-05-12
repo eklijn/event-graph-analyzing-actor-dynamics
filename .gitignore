@@ -16,3 +16,5 @@
 
 !/meta-output/.gitkeep
 /meta-output/
+
+/venv/

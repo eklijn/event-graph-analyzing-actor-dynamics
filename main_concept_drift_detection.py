@@ -15,25 +15,47 @@ eg = EventGraph(gc.get_password(), gc.get_entity_labels())
 analysis_directory = os.path.join(ac.get_analysis_directory(), "concept_drift_detection")
 os.makedirs(analysis_directory, exist_ok=True)
 
-window_sizes = [7]
+window_sizes = [1, 7]
 penalties = [1.5, 2, 2.5, 3]
 
-step_process_level_drift_detection = True
+step_process_level_drift_detection = False
+
 # process_drift_feature_sets = {"total_actions": ["total_activity_lifecycle_count"],
 #                               "total_tasks": ["total_task_count"]}
 # process_drift_feature_sets = {"task_handovers_actor": ["count_per_task_handover_actor"]}
-process_drift_feature_sets = {"activity_lcs": ["count_per_activity_lifecycle"]}
-# process_drift_feature_sets = {"tasks": ["count_per_task"],
-#                               "task_variants": ["count_per_task_variant"],
-#                               "activity_lcs": ["count_per_activity_lifecycle"],
-#                               "task_handovers_case": ["count_per_task_handover_case"],
-#                               "task_variant_handovers_case": ["count_per_task_variant_handover_case"],
-#                               "activity_lc_handovers_case": ["count_per_activity_lifecycle_handover_case"]}
+# process_drift_feature_sets = {"activity_lcs": ["count_per_activity_lifecycle"]}
+# process_drift_feature_sets = {"tasks_relative": ["count_per_task_relative"],
+#                               "task_variants_relative": ["count_per_task_variant_relative"],
+#                               "activity_lcs_relative": ["count_per_activity_lifecycle_relative"]}
+process_drift_feature_sets = {"tasks": ["count_per_task"],
+                              "task_variants": ["count_per_task_variant"],
+                              "activities": ["count_per_activity"],
+                              "task_handovers_case": ["count_per_task_handover_case"],
+                              "task_variant_handovers_case": ["count_per_task_variant_handover_case"],
+                              "activity_handovers_case": ["count_per_activity_handover_case"],
+                              "task_handovers_actor": ["count_per_task_handover_actor"],
+                              "task_variant_handovers_actor": ["count_per_task_variant_handover_actor"],
+                              "activity_handovers_actor": ["count_per_activity_handover_actor"],
+                              "tasks_relative": ["count_per_task_relative"],
+                              "task_variants_relative": ["count_per_task_variant_relative"],
+                              "activities_relative": ["count_per_activity_relative"],
+                              "task_handovers_case_relative": ["count_per_task_handover_case_relative"],
+                              "task_variant_handovers_case_relative": ["count_per_task_variant_handover_case_relative"],
+                              "activity_handovers_case_relative": ["count_per_activity_handover_case_relative"],
+                              "task_handovers_actor_relative": ["count_per_task_handover_actor_relative"],
+                              "task_variant_handovers_actor_relative": ["count_per_task_variant_handover_actor_relative"],
+                              "activity_handovers_actor_relative": ["count_per_activity_handover_actor_relative"]}
 
-step_actor_drift_detection = False
-actor_drift_feature_sets = {"tasks": ["count_per_task"]}
+step_actor_drift_detection = True
+actor_drift_feature_sets = {"tasks_relative": ["count_per_task_relative"],
+                            "task_variants_relative": ["count_per_task_variant_relative"],
+                            "activities_relative": ["count_per_activity_relative"],
+                            "task_handovers_actor_relative": ["count_per_task_handover_actor_relative"],
+                            "task_variant_handovers_actor_relative": ["count_per_task_variant_handover_actor_relative"],
+                            "activity_handovers_actor_relative": ["count_per_activity_handover_actor_relative"]}
 # actors = eg.query_actor_list(min_freq=1000)
-actors = ["User_27", "User_29"]
+actors = ["User_3", "User_87", "User_5", "User_30", "User_2", "User_100", "User_29", "User_49", "User_68",
+          "User_28", "User_41", "User_75", "User_123", "User_18", "User_99", "User_27", "User_15"]
 
 step_colab_drift_detection = False
 # colab_pairs = eg.query_colab_list()

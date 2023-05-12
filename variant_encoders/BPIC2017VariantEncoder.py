@@ -28,7 +28,7 @@ class BPIC2017VariantEncoder:
             for event in self.events_to_merge:
                 df_task_variants_encoded = merge_events(df_task_variants_encoded, event)
         if not self.encoding[1]:
-            for (column_name, column_data) in df_task_variants_encoded.iteritems():
+            for (column_name, column_data) in df_task_variants_encoded.items():
                 df_task_variants_encoded.loc[df_task_variants_encoded[column_name] > 1, column_name] = 1
         if self.encoding[2] != "AOW":
             if self.encoding[2] == "AO_W":

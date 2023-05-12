@@ -16,7 +16,7 @@ class AnalysisConfigurator:
         # self.merged_task_cluster_to_mine = analysis_confs.merged_task_cluster_to_mine[self.graph]
 
         self.clustering_instance_description = f"V{self.min_variant_freq}_C{self.num_clusters}_" \
-                                               f"L{self.cluster_min_variant_length}_"
+                                               f"L{self.cluster_min_variant_length}"
 
         if self.manual_clusters is not "":
             self.clustering_instance_description += "_manual"
@@ -44,7 +44,8 @@ class AnalysisConfigurator:
         self.dfg_resource_inter_start_end_date = analysis_confs.dfg_resource_inter_start_end_date[self.graph]
 
     def get_analysis_directory(self):
-        analysis_directory = f"output\\{self.graph}\\{self.clustering_instance_description}"
+        analysis_directory = f"F:\\analysis_output\\{self.graph}\\{self.clustering_instance_description}"
+        # analysis_directory = f"output\\{self.graph}\\{self.clustering_instance_description}"
         return analysis_directory
 
     def get_min_variant_freq(self):

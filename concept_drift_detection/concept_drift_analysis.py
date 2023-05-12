@@ -92,7 +92,7 @@ def detect_actor_drift(window_sizes, penalties, feature_sets, actor_list, analys
     all_features = [item for sublist in list(feature_sets.values()) for item in sublist]
     list_f_extr = get_feature_extractor_objects(all_features, window_sizes, event_graph, exclude_cluster)
 
-    for feature_set_name, feature_list in feature_sets:
+    for feature_set_name, feature_list in feature_sets.items():
         print(f"Feature set: {feature_set_name}")
 
         # create analysis directory for (actor drift detection X specified feature set)
@@ -114,7 +114,7 @@ def detect_actor_drift(window_sizes, penalties, feature_sets, actor_list, analys
             dict_actor_drift_points = {}
             for index, window_size in enumerate(window_sizes):
                 # generate mv time series for specified features/actor/window size
-                actor_feature_names, actor_feature_vector = list_f_extr[index].apply_feature_extraction(feature_list,
+                actor_feature_names, actor_feature_vector = list_f_extr[index].apply_feature_extraction(feature_list, actor=actor,
                                                                                                         actor_1=actor,
                                                                                                         actor_2=actor)
                 actor_feature_vector_stripped, time_window_mapping = strip_inactive_windows(actor_feature_vector)

@@ -23,8 +23,8 @@ ac = AnalysisConfigurator(graph)
 #     and allocate enough memory: set dbms.memory.heap.max_size=20G
 # (2) install APOC plugin
 # (3) specify path to import directory of neo4j database:
-path_to_neo4j_import_directory = 'C:\\Users\\s111402\\.Neo4jDesktop\\relate-data\dbmss\\' \
-                                 'dbms-75cf61d5-5ce3-4ffb-be62-b22a7cc7c5d8\\import\\'
+path_to_neo4j_import_directory = 'F:\\Neo4jDesktop\\relate-data\dbmss\\' \
+                                 'dbms-3ac3db86-f684-4006-8b9c-7e711062f962\\import\\'
 # (4) set "step_preprocess" and "step_create_event_graph" to true:
 step_preprocess = False
 step_construct_event_graph = False
