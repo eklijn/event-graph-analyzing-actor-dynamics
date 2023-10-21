@@ -1,6 +1,6 @@
 from GraphConfigurator import GraphConfigurator
 from AnalysisConfigurator import AnalysisConfigurator
-from TaskAnalyzer import TaskAnalyzer
+from modules.other_analysis.TaskAnalyzer import TaskAnalyzer
 
 # EVENT GRAPH, HIGH LEVEL EVENTS, AND CLASS CONSTRUCTS SHOULD ALREADY IN PLACE
 # -------------- BEGIN CONFIG ----------------- #
@@ -9,7 +9,7 @@ from TaskAnalyzer import TaskAnalyzer
 # specify the name of the graph:
 # graph = "operators"
 graph = "bpic2017_case_attr"
-# and configure all the settings related to this graph name in "graph_confs.py"
+# and configure all the settings related to this graph name in "graph_confs_old.py"
 gc = GraphConfigurator(graph)
 # and configure all analysis parameters in "analysis_confs.py"
 ac = AnalysisConfigurator(graph)

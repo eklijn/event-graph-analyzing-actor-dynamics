@@ -1,9 +1,9 @@
 **/__pycache__/
 /.idea/
 /__pycache__/
-/constructors/__pycache__/
+/modules/ekg_construction/__pycache__/
 /pattern_encoders/__pycache__/
-/preprocessors/__pycache__/
+/modules/preprocessing/preprocessors/__pycache__/
 
 !/output/.gitkeep
 /output/

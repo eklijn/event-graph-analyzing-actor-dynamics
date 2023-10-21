@@ -3,7 +3,7 @@ import os
 from GraphConfigurator import GraphConfigurator
 from AnalysisConfigurator import AnalysisConfigurator
 from EventGraph import EventGraph
-from concept_drift_detection import concept_drift_analysis
+from modules.task_cd_detection import concept_drift_analysis
 
 # initialize graph and analysis settings
 graph = "bpic2017_susp_res"
@@ -12,7 +12,7 @@ ac = AnalysisConfigurator(graph)
 eg = EventGraph(gc.get_password(), gc.get_entity_labels())
 
 # create global analysis directory
-analysis_directory = os.path.join(ac.get_analysis_directory(), "concept_drift_detection")
+analysis_directory = os.path.join(ac.get_analysis_directory(), "modules/task_cd_detection")
 os.makedirs(analysis_directory, exist_ok=True)
 
 window_sizes = [1, 7]
@@ -46,7 +46,7 @@ process_drift_feature_sets = {"tasks": ["count_per_task"],
                               "task_variant_handovers_actor_relative": ["count_per_task_variant_handover_actor_relative"],
                               "activity_handovers_actor_relative": ["count_per_activity_handover_actor_relative"]}
 
-step_actor_drift_detection = True
+step_actor_drift_detection = False
 actor_drift_feature_sets = {"tasks_relative": ["count_per_task_relative"],
                             "task_variants_relative": ["count_per_task_variant_relative"],
                             "activities_relative": ["count_per_activity_relative"],
@@ -57,7 +57,7 @@ actor_drift_feature_sets = {"tasks_relative": ["count_per_task_relative"],
 actors = ["User_3", "User_87", "User_5", "User_30", "User_2", "User_100", "User_29", "User_49", "User_68",
           "User_28", "User_41", "User_75", "User_123", "User_18", "User_99", "User_27", "User_15"]
 
-step_colab_drift_detection = False
+step_colab_drift_detection = True
 # colab_pairs = eg.query_colab_list()
 colab_pairs = [["User_87", "User_30"]]
 

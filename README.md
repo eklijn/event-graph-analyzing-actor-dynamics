@@ -50,7 +50,7 @@ The following software is recommended to be used for experimental replication:
 1. Set “step_measure_variants” to True. (And remember to select the graph you are currently running.)
 2. Run main.py
 
-*To use this implementation on other data sets or build on an existing event graph constructed by the [implementation](https://github.com/multi-dimensional-process-mining/graphdb-eventlogs) from [2], please follow the detailed comments in [main.py](main_other_analysis.py) and [graph_confs.py](graph_confs.py).*
+*To use this implementation on other data sets or build on an existing event graph constructed by the [implementation](https://github.com/multi-dimensional-process-mining/graphdb-eventlogs) from [2], please follow the detailed comments in [main.py](main_other_analysis.py) and [graph_confs.py](graph_confs_old.py).*
 
 ## Toolkit breakdown
 See [toolkit_breakdown.txt](toolkit_breakdown.txt) for a breakdown of the main executable and organization of the code.

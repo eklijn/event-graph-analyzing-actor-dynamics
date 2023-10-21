@@ -118,13 +118,6 @@ for graph in ["bpic2017_susp_res"]:
 
 
 for graph in ["operators"]:
-    min_variant_freq[graph] = 25
-    num_clusters[graph] = 17
-    cluster_min_variant_length[graph] = 2
-    manual_clusters[graph] = [8, 54, 75]
-    cluster_include_remainder[graph] = True
-
-    decomposition_property[graph] = "tbd"
 
     dfg_exclude_clusters[graph] = []
     dfg_inter_show_threshold[graph] = 25

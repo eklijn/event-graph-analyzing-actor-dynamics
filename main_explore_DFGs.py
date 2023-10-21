@@ -1,12 +1,12 @@
 from GraphConfigurator import GraphConfigurator
 from AnalysisConfigurator import AnalysisConfigurator
-from DFGVisualizer import DFGVisualizer
+from modules.task_dfg_visualization.DFGVisualizer import DFGVisualizer
 
 # --------------------------- BEGIN CONFIG ----------------------------- #
 # TO START:
 # specify the name of the graph:
 graph = "bpic2017_case_attr"
-# and configure all the settings related to this graph name in "graph_confs.py"
+# and configure all the settings related to this graph name in "graph_confs_old.py"
 gc = GraphConfigurator(graph)
 
 # specify the analysis description (patterns to be analyzed and number of clusters)

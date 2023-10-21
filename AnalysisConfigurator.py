@@ -44,7 +44,7 @@ class AnalysisConfigurator:
         self.dfg_resource_inter_start_end_date = analysis_confs.dfg_resource_inter_start_end_date[self.graph]
 
     def get_analysis_directory(self):
-        analysis_directory = f"F:\\analysis_output\\{self.graph}\\{self.clustering_instance_description}"
+        analysis_directory = f"output\\{self.graph}\\{self.clustering_instance_description}"
         # analysis_directory = f"output\\{self.graph}\\{self.clustering_instance_description}"
         return analysis_directory
 
