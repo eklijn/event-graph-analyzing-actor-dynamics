@@ -1,6 +1,6 @@
 from GraphConfigurator import GraphConfigurator
 from AnalysisConfigurator import AnalysisConfigurator
-from modules.preprocessing import PreprocessSelector
+# from modules.preprocessing import PreprocessSelector
 from modules.ekg_construction.EventGraphConstructor import EventGraphConstructor
 from modules.ekg_construction.HighLevelEventConstructor import HighLevelEventConstructor
 from modules.task_clustering.ClusterConstructor import ClusterConstructor
@@ -25,7 +25,7 @@ path_to_neo4j_import_directory = 'C:\\Users\\s111402\\.Neo4jDesktop\\relate-data
                                  'dbms-d43d0e64-67de-4c4b-8f5a-d167a6ca0de0\\import\\'
 # (4) set "step_preprocess" and "step_create_event_graph" to true:
 step_preprocess = False
-step_construct_event_graph = True
+step_construct_event_graph = False
 
 # IF EVENT GRAPH IS ALREADY CONSTRUCTED:
 # (5) set "step_construct_task_instances" to true to construct task instances:
@@ -36,16 +36,15 @@ step_add_task_instance_ids = True
 # ------------------------------ END CONFIG ---------------------------- #
 
 # [1.a] CONSTRUCTION
-if step_preprocess:
-    PreprocessSelector.get_preprocessor(graph, gc.get_filename(), gc.get_column_names(), gc.get_separator(),
-                                        gc.get_timestamp_format(), path_to_neo4j_import_directory).preprocess()
+# if step_preprocess:
+#     PreprocessSelector.get_preprocessor(graph, gc.get_filename(), gc.get_column_names(), gc.get_separator(),
+#                                         gc.get_timestamp_format(), path_to_neo4j_import_directory).preprocess()
 
 if step_construct_event_graph:
-    EventGraphConstructor(gc.get_password(), path_to_neo4j_import_directory, graph) \
+    EventGraphConstructor(gc.get_password(), path_to_neo4j_import_directory, graph, gc.get_actor_label(), gc.get_case_label()) \
         .construct()
 
 if step_construct_task_instances:
-    hle_constr = HighLevelEventConstructor(gc.get_password(), graph, gc.get_entity_labels(),
-                                           gc.get_action_lifecycle_labels())
+    hle_constr = HighLevelEventConstructor(gc.get_password(), graph, gc.get_actor_label(), gc.get_case_label())
     hle_constr.construct()
     hle_constr.set_task_instance_ids()

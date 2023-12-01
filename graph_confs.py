@@ -32,8 +32,8 @@ for graph in ["bpic2017_susp_res"]:
     timestamp_format[graph] = "%Y/%m/%d %H:%M:%S.%f"
     password[graph] = "bpic2017"
 
-    actor_label[graph] = "Resource"
-    case_label[graph] = "CaseAWO"
+    actor_label[graph] = "resource"
+    case_label[graph] = "case"
 
     case_attr_labels[graph] = ["ApplicationType", "LoanGoal", "RequestedAmount", "OfferID"]
     if graph in ["bpic2017_case_attr", "bpic2017_ek_offer_id", "bpic2017_susp_res"]:
