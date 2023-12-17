@@ -3,8 +3,44 @@ from neo4j import GraphDatabase
 
 
 class BottleneckAnalysisQueryEngine:
-    def __init__(self, password):
+    def __init__(self, password, actor_label, case_label):
         self.driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", password))
+        self.actor_label = actor_label
+        self.case_label = case_label
+
+    def get_workload_vs_avg_task_duration(self, task):
+        with self.driver.session() as session:
+            q = f'''
+                MATCH ()-[df:WAIT_DF_TI_{self.case_label}]->(ti) WHERE df.count IS NOT NULL AND ti.cluster = "{task}"
+                WITH df.count AS nr_waiting, duration.inSeconds(ti.start_time, ti.end_time) AS task_duration
+                WITH DISTINCT nr_waiting, count(*) AS count, AVG(task_duration) AS avg_task_duration
+                RETURN nr_waiting, count, avg_task_duration ORDER BY nr_waiting ASC
+                '''
+            result = session.run(q)
+            df_workload_vs_task_duration = pd.DataFrame([dict(record) for record in result])
+            for index, row in df_workload_vs_task_duration.iterrows():
+                avg_task_duration = row['avg_task_duration']
+                avg_task_duration_seconds = avg_task_duration.hours_minutes_seconds_nanoseconds[0] * 3600 + avg_task_duration.hours_minutes_seconds_nanoseconds[1] * 60 + avg_task_duration.hours_minutes_seconds_nanoseconds[2]
+                df_workload_vs_task_duration.loc[index, 'avg_task_duration_seconds'] = avg_task_duration_seconds
+                df_workload_vs_task_duration.drop(columns=['avg_task_duration'])
+        return df_workload_vs_task_duration
+
+    def get_workload_vs_task_duration(self, task):
+        with self.driver.session() as session:
+            q = f'''
+                MATCH ()-[df:WAIT_DF_TI_{self.case_label}]->(ti)-[:CORR]->(n:{self.actor_label}) 
+                    WHERE df.count IS NOT NULL AND ti.cluster = "{task}" AND n.sysId <> "User_1"
+                WITH df.count AS nr_waiting, duration.inSeconds(ti.start_time, ti.end_time) AS task_duration
+                RETURN nr_waiting, task_duration
+                '''
+            result = session.run(q)
+            df_workload_vs_task_duration = pd.DataFrame([dict(record) for record in result])
+            for index, row in df_workload_vs_task_duration.iterrows():
+                task_duration = row['task_duration']
+                task_duration_seconds = task_duration.hours_minutes_seconds_nanoseconds[0] * 3600 + task_duration.hours_minutes_seconds_nanoseconds[1] * 60 + task_duration.hours_minutes_seconds_nanoseconds[2]
+                df_workload_vs_task_duration.loc[index, 'task_duration_seconds'] = task_duration_seconds
+                df_workload_vs_task_duration.drop(columns=['task_duration'])
+        return df_workload_vs_task_duration
 
     def get_actor_edge_duration_and_dynamics(self):
         with self.driver.session() as session:
